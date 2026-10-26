@@ -338,6 +338,7 @@ Ligar em até 5 min e agendar visita ao stand. Destacar: entrada parcelada e uso
 
 - Disponibilidade alvo de 99,5% (mensal).
 - Fila de mensagens com reprocessamento em caso de falha de integração (CRM, WhatsApp).
+- O endpoint de webhook responde em bem menos de 10 s (timeout do WA-AKG, que faz **uma única tentativa** de entrega): só valida, grava e confirma.
 - Nenhum lead pode ser perdido: se o CRM estiver indisponível, o lead é guardado e reenviado.
 
 ### 7.3 Segurança e LGPD
@@ -438,6 +439,7 @@ Notas do MVP sobre o diagrama:
 - O **Gateway de canais** expõe `ChannelAdapter` (enviar texto/lista/documento, indicar "digitando", marcar como lida). Implementações: `WaAkgAdapter` (MVP) e `CloudApiAdapter` (produção, futuro).
 - Entre o webhook do canal e o orquestrador há uma **fila de entrada persistente**: o endpoint valida a assinatura, grava a mensagem de forma idempotente e responde de imediato; um worker processa e reprocessa em caso de falha.
 - O WA-AKG roda isolado, com banco próprio; o banco do bot é um **PostgreSQL separado**. Integrações do MVP: `SimulatedCrm`, e-mail e gerador de PDF.
+- O WA-AKG só entrega webhooks para URLs **HTTPS** cujo host resolva para **IP público** (proteção SSRF do próprio WA-AKG). Em desenvolvimento: CA local + rede Docker em faixa não privada (ver `infra/README.md`); no piloto: domínio público com certificado válido. Assinatura `X-Webhook-Signature: sha256=<HMAC do corpo bruto>` é sempre verificada.
 
 ### 9.2 Decisões-chave
 
@@ -612,7 +614,7 @@ Piloto com número dedicado, volume baixo e leads com opt-in (ver §7.7). Detalh
 | Vazamento de dados financeiros        | Sanções LGPD                | Criptografia, RBAC, minimização, auditoria                                          |
 | Baixa adesão dos corretores           | Lead desperdiçado           | SLA, gamificação, dossiê enxuto, treinamento                                        |
 | Bloqueio de número no WhatsApp (**alto** no MVP, pelo uso do WA-AKG não oficial) | Perda de canal e violação dos termos | Piloto com número dedicado, sem envio em massa nem mensagens frias, respeito a opt-out; adaptador permite migrar para a API oficial |
-| Webhook perdido (WA-AKG sem retry documentado) | Mensagem de lead perdida | Ingress mínimo com fila persistente e idempotência; conferir logs de entrega do WA-AKG |
+| Webhook perdido (WA-AKG sem retry: uma tentativa, timeout 10 s — confirmado no código v1.7.0) | Mensagem de lead perdida | Ingress mínimo com fila persistente e idempotência; conferir logs de entrega do WA-AKG |
 | LLM local errar extração           | Dado financeiro incorreto   | Parsers determinísticos primeiro, schema estrito, confirmação dos valores-chave, bateria de testes de modelo |
 | Integração com CRM instável           | Lead perdido                | Fila, reprocessamento e alertas                                                     |
 

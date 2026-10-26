@@ -63,3 +63,19 @@ Gateway WhatsApp self-hosted + dashboard. **Não é um chatbot com IA.** Seu "bo
 
 ## 6. Próximo passo
 Com as decisões acima (ou aceitando as recomendações), escrever `docs/03-impactos.md` e `docs/04-plano.md`.
+
+## 7. Verificações da Fase 0 (2026-10-26, código do WA-AKG v1.7.0, commit `936b26b`)
+
+Confirmado **no código** e/ou em execução local (ver `docs/fases/fase-0.md`):
+
+| Item | Resultado |
+|---|---|
+| Prefixo da API | Todas as rotas ficam sob `/api` (ex.: `POST /api/webhooks/{sessionId}`, `POST /api/webhooks/{sessionId}/{id}/test`). |
+| Webhook só em HTTPS + IP público | `validateSafeUrl(url, { allowHttp: false })` na criação e em cada entrega: recusa `http://`, `localhost` e IPs privados/reservados (10/8, 127/8, 169.254/16, 172.16/12, 192.168/16, ≥224, IPv6 local). **Novo achado**, não estava na documentação. Contorno de dev sem alterar o WA-AKG: TLS com CA local (`NODE_EXTRA_CA_CERTS`) + rede Docker em 198.18.0.0/15. **Testado em execução.** |
+| Assinatura | `X-Webhook-Signature: sha256=` + HMAC-SHA256 hex do corpo **bruto** (`JSON.stringify` do envelope). **Testado em execução** (válida → 200; secret errado → 401). |
+| G2 — retry | **Confirmado: não há retry.** Uma tentativa por evento, timeout de 10 s (15 s no teste), resultado gravado em `webhookLog` (máx. 500 por webhook). |
+| Envelope | `{ event, sessionId, timestamp, data }`. Evento de teste: `event: "test"`, `sessionId: "test"`. |
+| `message.received` | `data = { key: { id, remoteJid, fromMe, participant }, pushName, messageTimestamp, from, receiver, sender, isGroup, chatType, type, content, fileUrl, caption, quoted }`. `type` em MAIÚSCULAS: `TEXT, IMAGE, VIDEO, AUDIO, DOCUMENT, STICKER, LOCATION, CONTACT, INTERACTIVE_RESPONSE, BUTTON_RESPONSE, LIST_RESPONSE, UNKNOWN`. Disparado só para mensagens novas (não para sync de histórico). |
+| `fromMe` | Mensagens do próprio número saem como `message.sent`, não `message.received` (manter o filtro mesmo assim). |
+| G10 — LID | `from`/`key.remoteJid` já vêm normalizados para `@s.whatsapp.net` quando há `remoteJidAlt` ou contato conhecido no banco do WA-AKG; **senão continuam `@lid`**. O bot precisa tratar `@lid` sem telefone. `[verificar com número real]` |
+| G5 — botões/lista | `/interactive` e `/list` usam `nativeFlowMessage`/`interactiveMessage`; `/list` tem `legacyText: true`, que envia lista numerada em texto (fallback nativo). Renderização no app `[verificar com número real]`. |
