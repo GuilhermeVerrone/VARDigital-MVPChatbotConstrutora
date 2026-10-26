@@ -225,7 +225,7 @@ Detalhes em `docs/02-discovery.md` §7.
 | Stack em Linux | Só testada no macOS (Docker Desktop) | `./infra/scripts/verify-phase0.sh` no servidor. Em Linux, `host.docker.internal` depende do `extra_hosts: host-gateway` (já configurado). |
 
 ## Riscos e observações
-- **Disco do host**: está em 98–100% de uso (~2 GB livres depois do build). O build do WA-AKG deixou ~2 GB de cache de build, que não consegui remover seletivamente (o filtro `id=` do `docker builder prune` não funcionou nesta versão do buildx). Não apaguei cache de outros projetos. Para liberar espaço: `docker builder prune` (limpa o cache de build de **todos** os projetos).
+- **Disco do host**: está em 100% de uso (**~775 MB livres** no fim da fase; o Docker.raw cresceu de 8,6 GB para 16 GB). **Ação urgente do usuário.** O build do WA-AKG deixou ~2 GB de cache de build, que não consegui remover seletivamente (o filtro `id=` do `docker builder prune` não funcionou nesta versão do buildx). Não apaguei cache de outros projetos. Para liberar espaço: `docker builder prune` (limpa o cache de build de **todos** os projetos).
 - **Contorno de SSRF só para dev** (rede 198.18/15 + CA local). Não usar em produção. No piloto, o bot precisa de URL pública HTTPS e de proteção na borda (firewall/allowlist do IP do WA-AKG), além do HMAC.
 - **Webhook sem retry** (confirmado): até a fila da Fase 3 existir, mensagem que chegar com o bot fora do ar é perdida. A Fase 3 deve conferir `GET /api/webhooks/{session}/{id}/logs` para reconciliar.
 - Chave privada de dev do bot com `chmod 644`, para o usuário `node` do container ler via bind mount. Só dev; o arquivo está fora do git.

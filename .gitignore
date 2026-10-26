@@ -11,3 +11,4 @@ infra/certs/*
 !infra/certs/.gitkeep
 infra/.state/
 .DS_Store
+.vitest/
