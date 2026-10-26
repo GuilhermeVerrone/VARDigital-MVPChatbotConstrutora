@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import type { DependencyChecks } from '../deps';
 
 export function healthRoutes(app: FastifyInstance, deps: DependencyChecks) {
-  app.get('/health', async () => ({ status: 'ok' }));
+  // Healthcheck do Docker a cada 10 s: não polui o log.
+  app.get('/health', { logLevel: 'warn' }, async () => ({ status: 'ok' }));
 
   app.get('/health/deps', async (_req, reply) => {
     const [postgres, ollama] = await Promise.all([deps.postgres(), deps.ollama()]);

@@ -1,0 +1,146 @@
+# Ambiente local do MVP. Uso (a partir de infra/):
+#   ./scripts/init-env.sh && ./scripts/gen-dev-certs.sh && ../infra/scripts/fetch-wa-akg.sh
+#   docker compose up -d --build
+# Ver infra/README.md.
+name: mvp-construtora
+
+services:
+  # ---------- WA-AKG (gateway WhatsApp, não oficial) — isolado, banco próprio ----------
+  wa-akg-db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${WA_AKG_MYSQL_ROOT_PASSWORD:?defina em infra/.env}
+      MYSQL_DATABASE: wa_akg
+    volumes:
+      - wa_akg_mysql:/var/lib/mysql
+    networks: [wa-akg-internal]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  wa-akg:
+    # Código do WA-AKG não é alterado: build a partir do clone fixo em vendor/wa-akg.
+    build:
+      context: ${WA_AKG_SRC:-../vendor/wa-akg}
+    image: mvp-construtora/wa-akg:1.7.0
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql://root:${WA_AKG_MYSQL_ROOT_PASSWORD}@wa-akg-db:3306/wa_akg
+      AUTH_SECRET: ${WA_AKG_AUTH_SECRET:?defina em infra/.env}
+      AUTH_TRUST_HOST: "true"
+      BASE_URL: http://localhost:${WA_AKG_PORT:-3000}
+      NEXTAUTH_URL: http://localhost:${WA_AKG_PORT:-3000}
+      NEXT_PUBLIC_APP_URL: http://localhost:${WA_AKG_PORT:-3000}
+      NEXT_PUBLIC_API_URL: http://localhost:${WA_AKG_PORT:-3000}/api
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      BAILEYS_LOG_LEVEL: error
+      NEXT_PUBLIC_SWAGGER_ENABLED: "true"
+      NEXT_PUBLIC_SWAGGER_USERNAME: admin
+      NEXT_PUBLIC_SWAGGER_PASSWORD: ${WA_AKG_SWAGGER_PASSWORD:?defina em infra/.env}
+      ENABLE_TELEMETRY: "false"
+      ENABLE_AUTO_UPDATE_CHECK: "false"
+      TZ: America/Sao_Paulo
+      ADMIN_EMAIL: ${WA_AKG_ADMIN_EMAIL:?defina em infra/.env}
+      ADMIN_PASSWORD: ${WA_AKG_ADMIN_PASSWORD:?defina em infra/.env}
+      # Dev: confia na CA local para entregar webhook HTTPS ao bot (o WA-AKG recusa http://).
+      NODE_EXTRA_CA_CERTS: /certs/dev-ca.crt
+    ports:
+      - "127.0.0.1:${WA_AKG_PORT:-3000}:3000"
+    volumes:
+      - wa_akg_data:/app/data
+      - wa_akg_uploads:/app/uploads
+      - ./certs/dev-ca.crt:/certs/dev-ca.crt:ro
+    networks: [wa-akg-internal, edge]
+    depends_on:
+      wa-akg-db:
+        condition: service_healthy
+
+  # ---------- Nosso lado: Postgres separado, Ollama, bot ----------
+  bot-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bot
+      POSTGRES_PASSWORD: ${BOT_DB_PASSWORD:?defina em infra/.env}
+      POSTGRES_DB: bot
+    ports:
+      - "127.0.0.1:${BOT_DB_PORT:-5433}:5432"
+    volumes:
+      - bot_pg:/var/lib/postgresql/data
+    networks: [bot-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bot -d bot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Ollama em container: ative com COMPOSE_PROFILES=ollama (Linux/servidor).
+  # No macOS o Docker não acessa a GPU: rode `ollama serve` no host e use
+  # OLLAMA_BASE_URL=http://host.docker.internal:11434 (ver infra/README.md).
+  ollama:
+    image: ollama/ollama:${OLLAMA_VERSION:-0.33.0}
+    profiles: [ollama]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11435}:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks: [bot-internal]
+
+  bot:
+    build:
+      context: ..
+      dockerfile: apps/bot/Dockerfile
+    image: mvp-construtora/bot:dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${BOT_LOG_LEVEL:-info}
+      BOT_PORT: "3100"
+      BOT_TLS_CERT_FILE: /certs/bot.crt
+      BOT_TLS_KEY_FILE: /certs/bot.key
+      WA_AKG_WEBHOOK_SECRET: ${WA_AKG_WEBHOOK_SECRET:?defina em infra/.env}
+      BOT_DATABASE_URL: postgres://bot:${BOT_DB_PASSWORD}@bot-db:5432/bot
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      WEBHOOK_CAPTURE_DIR: ${WEBHOOK_CAPTURE_DIR:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${BOT_PORT:-3100}:3100"
+    volumes:
+      - ./certs/bot.crt:/certs/bot.crt:ro
+      - ./certs/bot.key:/certs/bot.key:ro
+      - bot_captures:/captures
+    networks:
+      bot-internal: {}
+      edge:
+        ipv4_address: 198.18.100.10
+    depends_on:
+      bot-db:
+        condition: service_healthy
+
+networks:
+  wa-akg-internal: {}
+  bot-internal: {}
+  # Única ponte entre WA-AKG e bot. A proteção SSRF do WA-AKG bloqueia webhooks para
+  # IPs privados (10/8, 172.16/12, 192.168/16...). 198.18.0.0/15 (RFC 2544, faixa de
+  # benchmark, nunca roteada na internet) não está na lista bloqueada → permite entregar
+  # ao bot na rede Docker local sem alterar o WA-AKG. SOMENTE DESENVOLVIMENTO.
+  edge:
+    ipam:
+      config:
+        - subnet: 198.18.100.0/24
+          gateway: 198.18.100.1
+
+volumes:
+  wa_akg_mysql:
+  wa_akg_data:
+  wa_akg_uploads:
+  bot_pg:
+  bot_captures:
+  ollama_models:

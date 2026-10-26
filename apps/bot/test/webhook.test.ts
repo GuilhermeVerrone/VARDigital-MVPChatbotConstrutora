@@ -77,7 +77,7 @@ describe('POST /webhooks/wa-akg', () => {
       event: 'message.received',
       sessionId: 'piloto',
       timestamp: '2026-10-26T12:00:00.000Z',
-      data: { key: { id: 'ABC', fromMe: false, remoteJid: '5511987654321@s.whatsapp.net' }, from: '5511987654321@s.whatsapp.net', type: 'text', content: 'oi', isGroup: false },
+      data: { key: { id: 'ABC', fromMe: false, remoteJid: '5511987654321@s.whatsapp.net' }, from: '5511987654321@s.whatsapp.net', type: 'TEXT', content: 'oi', isGroup: false },
     });
     const res = await post(body, signWaAkgPayload(body, secret));
     expect(res.statusCode).toBe(200);

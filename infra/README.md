@@ -1,0 +1,58 @@
+# infra — ambiente local
+
+Sobe, isolados, o WA-AKG (gateway WhatsApp **não oficial**, só para MVP/piloto) com seu MySQL, e o nosso lado: Postgres próprio, bot (Fastify) e Ollama.
+
+```
+             rede wa-akg-internal                rede edge (198.18.100.0/24)              rede bot-internal
+ wa-akg-db (MySQL) ── wa-akg (:3000) ──── https://bot:3100/webhooks/wa-akg ────▶ bot (:3100) ── bot-db (Postgres :5433 no host)
+                                                                                         └──── Ollama (host no macOS / container no Linux)
+```
+
+## Primeira vez
+
+```bash
+cd infra
+./scripts/init-env.sh        # cria infra/.env com segredos aleatórios (não versionado)
+./scripts/gen-dev-certs.sh   # CA de dev + certificado do bot (infra/certs, não versionado)
+./scripts/fetch-wa-akg.sh    # clona o WA-AKG v1.7.0 (commit fixo) em vendor/wa-akg, sem alterações
+docker compose up -d --build # build do WA-AKG leva ~5 min e ocupa ~1,8 GB de imagem
+./scripts/wa-akg-bootstrap.sh  # admin → API key → sessão "piloto" → webhook com secret → teste
+./scripts/verify-phase0.sh     # todos os critérios automáticos da Fase 0
+```
+
+### Ollama
+
+| Ambiente | Como rodar | `infra/.env` |
+|---|---|---|
+| macOS (dev) | `OLLAMA_HOST=0.0.0.0:11434 ollama serve` no host (Docker no Mac não usa a GPU/Metal) e `ollama pull llama3.2:3b` | `COMPOSE_PROFILES=` e `OLLAMA_BASE_URL=http://host.docker.internal:11434` |
+| Linux/servidor | container do compose | `COMPOSE_PROFILES=ollama` e `OLLAMA_BASE_URL=http://ollama:11434`; depois `docker compose exec ollama ollama pull llama3.2:3b` |
+
+`init-env.sh` já escolhe pelo sistema operacional. A imagem `ollama/ollama` tem ~2,8 GB comprimida (arm64).
+O modelo de produção será escolhido na Fase 4; `llama3.2:3b` é só para o teste de fumaça.
+
+### Conectar o número de teste (manual)
+
+1. Abra http://localhost:3000/dashboard e entre com `WA_AKG_ADMIN_EMAIL` / `WA_AKG_ADMIN_PASSWORD` de `infra/.env`.
+2. Sessão `piloto` → escaneie o QR code com o WhatsApp do **número dedicado ao piloto** (nunca um número pessoal/comercial principal: risco de ban).
+3. Para inspecionar o formato real das mensagens: em `infra/.env` defina `WEBHOOK_CAPTURE_DIR=/captures`, rode `docker compose up -d bot`, mande mensagens para o número e veja `docker compose exec bot ls /captures`. **Os arquivos contêm dados pessoais**: apague depois (`docker compose exec bot sh -c 'rm -f /captures/*'`) e desligue a captura.
+
+## Por que HTTPS e a rede 198.18.100.0/24
+
+O WA-AKG (src/lib/security.ts → `validateSafeUrl`) só aceita webhooks `https://` e recusa hosts que resolvam para IP privado/loopback (10/8, 172.16/12, 192.168/16, 127/8…). Como não alteramos o WA-AKG:
+
+- o bot serve HTTPS com certificado de uma **CA de desenvolvimento**, e o container do WA-AKG confia nela via `NODE_EXTRA_CA_CERTS` (variável de ambiente, não código);
+- a rede `edge` usa 198.18.0.0/15 (RFC 2544, faixa de benchmark, nunca roteada na internet), que não está na lista bloqueada.
+
+**Isso é só para desenvolvimento.** No piloto/produção, exponha o bot num domínio público com certificado válido (reverse proxy + Let's Encrypt) e use essa URL em `BOT_WEBHOOK_URL`.
+
+## Comandos úteis
+
+```bash
+docker compose ps
+docker compose logs -f bot            # logs JSON; telefone mascarado, conteúdo não é logado
+curl --cacert certs/dev-ca.crt https://localhost:3100/health/deps
+docker compose down                   # para (mantém volumes)
+docker compose down -v                # apaga também os dados (MySQL do WA-AKG, Postgres, sessão do WhatsApp)
+```
+
+Espaço em disco: o build do WA-AKG deixa ~2 GB de cache de build; `docker builder prune` libera (atenção: apaga o cache de build de todos os projetos).
