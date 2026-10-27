@@ -158,9 +158,12 @@ describe('idade e prazo (spec §4.5)', () => {
     expect(r.reasons).not.toContain('AGE_LIMIT');
   });
 
-  it('INVIAVEL quando a idade não permite nem o prazo mínimo (um dia a mais)', () => {
-    // nascido 1 dia antes de completar 70 anos + 1 mês → 841 meses → restam 119 < 120
-    const r = simulate(baseInput({ applicant: { ...baseInput().applicant, birthDate: '1956-09-25' } }), simpleParams());
+  it('INVIAVEL quando a idade não permite nem o prazo mínimo (fronteira de um dia)', () => {
+    // 1956-09-27 → 840 meses completos em 2026-10-26 → restam 120 = mínimo → simula
+    const ok = simulate(baseInput({ applicant: { ...baseInput().applicant, birthDate: '1956-09-27' } }), simpleParams());
+    expect(ok.selected!.term!.months).toBe(120);
+    // 1956-09-26 (um dia antes) → 841 meses → restam 119 < 120
+    const r = simulate(baseInput({ applicant: { ...baseInput().applicant, birthDate: '1956-09-26' } }), simpleParams());
     expect(r.verdict).toBe('INVIAVEL');
     expect(r.reasons).toEqual(['AGE_LIMIT']);
     expect(r.suggestions.map((s) => s.code)).toContain('ADD_CO_APPLICANT');
