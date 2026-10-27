@@ -1,0 +1,22 @@
+{
+  "referenceDate": "2026-10-26",
+  "propertyValue": 240000,
+  "applicant": {
+    "birthDate": "1992-03-10",
+    "grossMonthlyIncome": 4200,
+    "incomeType": "CLT",
+    "monthlyDebts": 150,
+    "fgts": { "balance": 18000, "contributionMonths": 48 }
+  },
+  "coApplicant": null,
+  "availableDownPayment": 55000,
+  "ownsResidentialProperty": false,
+  "firstFinancing": true,
+  "system": "SAC",
+  "construction": {
+    "deliveryDate": "2029-06-30",
+    "signalRatio": 0.1,
+    "balloonRatio": 0.3,
+    "balloonIntervalMonths": 12
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "version": "2026-10-ILUSTRATIVO-v1",
+  "status": "ILUSTRATIVO",
+  "validFrom": "2026-01-01",
+  "validTo": null,
+  "defaultSystem": "SAC",
+  "adjustmentToleranceRatio": 0.1,
+  "highCommitmentAlertRatio": 0.9,
+  "informalIncomeTypes": ["AUTONOMO", "OUTROS"],
+  "creditLines": [
+    {
+      "id": "programa-habitacional-faixa-a",
+      "name": "Programa habitacional – faixa A (ILUSTRATIVO)",
+      "priority": 1,
+      "eligibility": {
+        "maxFamilyIncome": 4700,
+        "maxPropertyValue": 264000,
+        "requiresFirstFinancing": true,
+        "requiresNoOwnedProperty": true
+      },
+      "maxLtv": 0.8,
+      "annualInterestRate": 0.05,
+      "rateConvention": "NOMINAL",
+      "maxIncomeCommitment": 0.3,
+      "termMonths": { "min": 120, "max": 420 },
+      "maxAgeAtEndMonths": 966,
+      "ageRule": "OLDEST",
+      "systems": ["SAC", "PRICE"],
+      "insurance": {
+        "mipMonthlyRateByAge": [
+          { "upToAgeYears": 30, "monthlyRate": 0.000098 },
+          { "upToAgeYears": 40, "monthlyRate": 0.00014 },
+          { "upToAgeYears": 50, "monthlyRate": 0.00028 },
+          { "upToAgeYears": 60, "monthlyRate": 0.00063 },
+          { "upToAgeYears": 70, "monthlyRate": 0.0013 },
+          { "upToAgeYears": 80, "monthlyRate": 0.0022 }
+        ],
+        "dfiMonthlyRate": 0.00007
+      },
+      "adminFeeMonthly": 25,
+      "otherMonthlyFees": [],
+      "subsidy": {
+        "maxPropertyValue": 264000,
+        "bands": [
+          { "maxFamilyIncome": 2850, "amount": 55000 },
+          { "maxFamilyIncome": 3500, "amount": 30000 },
+          { "maxFamilyIncome": 4700, "amount": 10000 }
+        ]
+      },
+      "fgts": {
+        "allowed": true,
+        "minContributionMonths": 36,
+        "maxPropertyValue": 1500000,
+        "requiresNoOwnedProperty": true
+      }
+    },
+    {
+      "id": "programa-habitacional-faixa-b",
+      "name": "Programa habitacional – faixa B (ILUSTRATIVO)",
+      "priority": 2,
+      "eligibility": {
+        "maxFamilyIncome": 8600,
+        "maxPropertyValue": 350000,
+        "requiresFirstFinancing": true,
+        "requiresNoOwnedProperty": true
+      },
+      "maxLtv": 0.8,
+      "annualInterestRate": 0.0766,
+      "rateConvention": "NOMINAL",
+      "maxIncomeCommitment": 0.3,
+      "termMonths": { "min": 120, "max": 420 },
+      "maxAgeAtEndMonths": 966,
+      "ageRule": "OLDEST",
+      "systems": ["SAC", "PRICE"],
+      "insurance": {
+        "mipMonthlyRateByAge": [
+          { "upToAgeYears": 30, "monthlyRate": 0.000098 },
+          { "upToAgeYears": 40, "monthlyRate": 0.00014 },
+          { "upToAgeYears": 50, "monthlyRate": 0.00028 },
+          { "upToAgeYears": 60, "monthlyRate": 0.00063 },
+          { "upToAgeYears": 70, "monthlyRate": 0.0013 },
+          { "upToAgeYears": 80, "monthlyRate": 0.0022 }
+        ],
+        "dfiMonthlyRate": 0.00007
+      },
+      "adminFeeMonthly": 25,
+      "otherMonthlyFees": [],
+      "subsidy": null,
+      "fgts": {
+        "allowed": true,
+        "minContributionMonths": 36,
+        "maxPropertyValue": 1500000,
+        "requiresNoOwnedProperty": true
+      }
+    },
+    {
+      "id": "sbpe",
+      "name": "SBPE (ILUSTRATIVO)",
+      "priority": 3,
+      "eligibility": {
+        "maxFamilyIncome": null,
+        "maxPropertyValue": null,
+        "requiresFirstFinancing": false,
+        "requiresNoOwnedProperty": false
+      },
+      "maxLtv": 0.8,
+      "annualInterestRate": 0.1149,
+      "rateConvention": "EFFECTIVE",
+      "maxIncomeCommitment": 0.3,
+      "termMonths": { "min": 60, "max": 420 },
+      "maxAgeAtEndMonths": 966,
+      "ageRule": "OLDEST",
+      "systems": ["SAC", "PRICE"],
+      "insurance": {
+        "mipMonthlyRateByAge": [
+          { "upToAgeYears": 30, "monthlyRate": 0.000098 },
+          { "upToAgeYears": 40, "monthlyRate": 0.00014 },
+          { "upToAgeYears": 50, "monthlyRate": 0.00028 },
+          { "upToAgeYears": 60, "monthlyRate": 0.00063 },
+          { "upToAgeYears": 70, "monthlyRate": 0.0013 },
+          { "upToAgeYears": 80, "monthlyRate": 0.0022 }
+        ],
+        "dfiMonthlyRate": 0.00007
+      },
+      "adminFeeMonthly": 25,
+      "otherMonthlyFees": [],
+      "subsidy": null,
+      "fgts": {
+        "allowed": true,
+        "minContributionMonths": 36,
+        "maxPropertyValue": 1500000,
+        "requiresNoOwnedProperty": true
+      }
+    }
+  ]
+}

@@ -7,6 +7,7 @@ Produto: [`spec.md`](spec.md). Método e decisões: [`docs/`](docs/) (prompt gui
 | Caminho | O quê |
 |---|---|
 | `apps/bot` | Servidor Fastify: webhook do WA-AKG (HMAC), health checks. Orquestrador entra nas próximas fases. |
+| `packages/simulation` | Motor de simulação puro (SAC/Price, enquadramento, FGTS, subsídio, idade, parecer, fluxo de obra). Ver [`packages/simulation/README.md`](packages/simulation/README.md). |
 | `packages/channel` | Camada de canal (hoje: verificação da assinatura do WA-AKG). `ChannelAdapter` na Fase 3. |
 | `infra/` | `docker compose` (WA-AKG isolado + Postgres + Ollama + bot), scripts de setup e verificação. Ver [`infra/README.md`](infra/README.md). |
 | `prompts/` | Prompts versionados do LLM (Fase 4). |
