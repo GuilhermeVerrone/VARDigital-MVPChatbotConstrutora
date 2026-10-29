@@ -92,6 +92,21 @@ importers:
         specifier: ^4.23.15
         version: 4.23.15
 
+  packages/llm:
+    dependencies:
+      '@mvp/parsers':
+        specifier: workspace:*
+        version: link:../parsers
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+
+  packages/parsers: {}
+
   packages/simulation:
     dependencies:
       zod:
