@@ -45,6 +45,15 @@ O WA-AKG (src/lib/security.ts → `validateSafeUrl`) só aceita webhooks `https:
 
 **Isso é só para desenvolvimento.** No piloto/produção, exponha o bot num domínio público com certificado válido (reverse proxy + Let's Encrypt) e use essa URL em `BOT_WEBHOOK_URL`.
 
+## Banco do bot (migrations, seed, parâmetros)
+
+```bash
+docker compose up -d bot-db
+./scripts/db-setup.sh                 # aplica migrations, roda o seed idempotente e mostra os parâmetros vigentes
+```
+
+Alterar parâmetros financeiros (cria nova versão com vigência e auditoria): ver [`packages/db/README.md`](../packages/db/README.md#cli-de-parâmetros).
+
 ## Comandos úteis
 
 ```bash

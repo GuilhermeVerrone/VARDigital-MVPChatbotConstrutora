@@ -465,6 +465,8 @@ Notas do MVP sobre o diagrama:
 
 ## 10. Modelo de dados (resumo)
 
+Implementação (MVP): `packages/db/prisma/schema.prisma`, com identificadores em inglês. A correspondência com os nomes abaixo está em `packages/db/README.md`. `LinhaCredito` pertence a uma versão de parâmetros (`ParameterSet`), que guarda a vigência. Versões são imutáveis, e alterar parâmetros cria nova versão com auditoria.
+
 ```
 Lead
   id, nome, telefone, email, data_nascimento, origem, campanha,
