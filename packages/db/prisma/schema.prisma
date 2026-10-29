@@ -1,0 +1,391 @@
+// Banco do bot (PostgreSQL separado do banco do WA-AKG, decisão D5).
+// Modelo de dados: spec.md §10. Identificadores em inglês; tabelas e colunas em snake_case.
+// Correspondência com os nomes do spec: packages/db/README.md.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Leads e conversa
+// ---------------------------------------------------------------------------
+
+enum LeadStatus {
+  NEW
+  IN_PROGRESS
+  SIMULATED
+  HANDOFF
+  DELIVERED
+  OPTED_OUT
+  CLOSED
+}
+
+enum ScoreClass {
+  HOT
+  WARM
+  COLD
+}
+
+enum Channel {
+  WHATSAPP
+  WEB
+}
+
+enum IncomeType {
+  CLT
+  AUTONOMO
+  SERVIDOR
+  APOSENTADO
+  OUTROS
+}
+
+/// Lead (spec §10). Dados pessoais: só gravados após o consentimento (RF-02, RF-12).
+model Lead {
+  id         String     @id @default(uuid()) @db.Uuid
+  name       String?
+  /// Telefone E.164 só com dígitos (ex.: 5511999990000). Chave de deduplicação (RF-41).
+  phone      String?    @unique
+  /// JID do canal (ex.: 5511...@s.whatsapp.net ou ...@lid quando o telefone não é conhecido).
+  channelJid String?    @unique @map("channel_jid")
+  email      String?
+  birthDate  DateTime?  @map("birth_date") @db.Date
+  origin     String?
+  campaign   String?
+  status     LeadStatus @default(NEW)
+  score      Int?
+  scoreClass ScoreClass? @map("score_class")
+  brokerId   String?    @map("broker_id") @db.Uuid
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  broker           Broker?            @relation(fields: [brokerId], references: [id], onDelete: SetNull)
+  consents         Consent[]
+  conversations    Conversation[]
+  financialProfile FinancialProfile?
+  simulations      Simulation[]
+  messages         ProcessedMessage[]
+
+  @@index([brokerId])
+  @@map("leads")
+}
+
+/// Consentimento LGPD versionado (texto, data, canal). Revogar não apaga o registro.
+model Consent {
+  id          String    @id @default(uuid()) @db.Uuid
+  leadId      String    @map("lead_id") @db.Uuid
+  textVersion String    @map("text_version")
+  channel     Channel
+  acceptedAt  DateTime  @map("accepted_at") @db.Timestamptz(3)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("consents")
+}
+
+model Conversation {
+  id           String   @id @default(uuid()) @db.Uuid
+  leadId       String   @map("lead_id") @db.Uuid
+  channel      Channel
+  /// Estado da máquina de estados (Fase 5).
+  state        String
+  /// Dados coletados na conversa ainda não confirmados (Fase 5).
+  context      Json     @default("{}")
+  /// Histórico resumido (mensagens) repassado ao corretor no handoff.
+  history      Json     @default("[]")
+  handoff      Boolean  @default(false)
+  startedAt    DateTime @default(now()) @map("started_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("conversations")
+}
+
+/// Perfil financeiro informado pelo lead (valores confirmados antes de simular, spec §5.1).
+model FinancialProfile {
+  id                         String      @id @default(uuid()) @db.Uuid
+  leadId                     String      @unique @map("lead_id") @db.Uuid
+  grossMonthlyIncome         Decimal     @map("gross_monthly_income") @db.Decimal(14, 2)
+  incomeType                 IncomeType  @map("income_type")
+  monthlyDebts               Decimal     @default(0) @map("monthly_debts") @db.Decimal(14, 2)
+  availableDownPayment       Decimal     @default(0) @map("available_down_payment") @db.Decimal(14, 2)
+  fgtsBalance                Decimal?    @map("fgts_balance") @db.Decimal(14, 2)
+  fgtsContributionMonths     Int?        @map("fgts_contribution_months")
+  ownsResidentialProperty    Boolean     @map("owns_residential_property")
+  firstFinancing             Boolean     @map("first_financing")
+  coApplicantIncome          Decimal?    @map("co_applicant_income") @db.Decimal(14, 2)
+  coApplicantIncomeType      IncomeType? @map("co_applicant_income_type")
+  coApplicantBirthDate       DateTime?   @map("co_applicant_birth_date") @db.Date
+  coApplicantMonthlyDebts    Decimal?    @map("co_applicant_monthly_debts") @db.Decimal(14, 2)
+  coApplicantFgtsBalance     Decimal?    @map("co_applicant_fgts_balance") @db.Decimal(14, 2)
+  coApplicantFgtsMonths      Int?        @map("co_applicant_fgts_months")
+  updatedAt                  DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("financial_profiles")
+}
+
+// ---------------------------------------------------------------------------
+// Empreendimentos e unidades
+// ---------------------------------------------------------------------------
+
+enum UnitStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+model Development {
+  id           String   @id @default(uuid()) @db.Uuid
+  /// Identificador estável usado pelo seed e pela CLI.
+  slug         String   @unique
+  name         String
+  city         String
+  description  String
+  deliveryDate DateTime @map("delivery_date") @db.Date
+  /// Perguntas frequentes cadastradas: [{ question, answer }] (base do FAQ, Fase 4).
+  faq          Json     @default("[]")
+  /// Materiais (plantas, book): [{ title, url }].
+  materials    Json     @default("[]")
+  /// Fluxo de pagamento da obra (RF-23 simples): frações da entrada e intervalo dos reforços.
+  signalRatio           Decimal? @map("signal_ratio") @db.Decimal(5, 4)
+  balloonRatio          Decimal? @map("balloon_ratio") @db.Decimal(5, 4)
+  balloonIntervalMonths Int?     @map("balloon_interval_months")
+  /// ILUSTRATIVO enquanto os dados não forem os reais do empreendimento.
+  dataStatus   String   @default("ILUSTRATIVO") @map("data_status")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  units Unit[]
+
+  @@map("developments")
+}
+
+model Unit {
+  id            String     @id @default(uuid()) @db.Uuid
+  developmentId String     @map("development_id") @db.Uuid
+  /// Código da unidade no espelho de vendas (ex.: "A-101").
+  code          String
+  typology      String
+  areaM2        Decimal    @map("area_m2") @db.Decimal(8, 2)
+  price         Decimal    @db.Decimal(14, 2)
+  status        UnitStatus @default(AVAILABLE)
+  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  development Development  @relation(fields: [developmentId], references: [id], onDelete: Restrict)
+  simulations Simulation[]
+
+  @@unique([developmentId, code])
+  @@map("units")
+}
+
+// ---------------------------------------------------------------------------
+// Parâmetros financeiros com vigência (spec §7.5, RF-47, RF-52)
+// ---------------------------------------------------------------------------
+
+enum ParameterStatus {
+  ILUSTRATIVO
+  VALIDADO
+}
+
+enum AmortizationSystem {
+  SAC
+  PRICE
+}
+
+enum RateConvention {
+  NOMINAL
+  EFFECTIVE
+}
+
+enum AgeRule {
+  OLDEST
+  YOUNGEST
+}
+
+/// Versão imutável do conjunto de parâmetros. Alterar = criar nova versão (CLI), nunca editar.
+/// Vigência em datas inclusivas [valid_from, valid_to]; valid_to nulo = sem fim.
+/// Restrição de exclusão (migration) impede duas versões ativas com vigências sobrepostas.
+model ParameterSet {
+  id                       String             @id @default(uuid()) @db.Uuid
+  version                  String             @unique
+  status                   ParameterStatus
+  validFrom                DateTime           @map("valid_from") @db.Date
+  validTo                  DateTime?          @map("valid_to") @db.Date
+  defaultSystem            AmortizationSystem @map("default_system")
+  adjustmentToleranceRatio Decimal            @map("adjustment_tolerance_ratio") @db.Decimal(9, 8)
+  highCommitmentAlertRatio Decimal            @map("high_commitment_alert_ratio") @db.Decimal(9, 8)
+  informalIncomeTypes      IncomeType[]       @map("informal_income_types")
+  /// Versão da qual esta foi derivada (null na primeira importação).
+  basedOnId                String?            @map("based_on_id") @db.Uuid
+  /// Preenchido quando outra versão com a mesma data de início a substituiu.
+  supersededById           String?            @unique @map("superseded_by_id") @db.Uuid
+  createdBy                String             @map("created_by")
+  note                     String?
+  createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  basedOn      ParameterSet?  @relation("ParameterSetLineage", fields: [basedOnId], references: [id], onDelete: Restrict)
+  derived      ParameterSet[] @relation("ParameterSetLineage")
+  supersededBy ParameterSet?  @relation("ParameterSetSuperseded", fields: [supersededById], references: [id], onDelete: Restrict)
+  supersedes   ParameterSet?  @relation("ParameterSetSuperseded")
+  creditLines  CreditLine[]
+  simulations  Simulation[]
+
+  @@index([validFrom])
+  @@map("parameter_sets")
+}
+
+/// Linha de crédito de uma versão de parâmetros (spec §10 LinhaCredito). A vigência é a da versão.
+model CreditLine {
+  id                      String               @id @default(uuid()) @db.Uuid
+  parameterSetId          String               @map("parameter_set_id") @db.Uuid
+  /// Identificador estável entre versões (ex.: "sbpe").
+  code                    String
+  name                    String
+  priority                Int
+  maxFamilyIncome         Decimal?             @map("max_family_income") @db.Decimal(14, 2)
+  maxPropertyValue        Decimal?             @map("max_property_value") @db.Decimal(14, 2)
+  requiresFirstFinancing  Boolean              @map("requires_first_financing")
+  requiresNoOwnedProperty Boolean              @map("requires_no_owned_property")
+  maxLtv                  Decimal              @map("max_ltv") @db.Decimal(9, 8)
+  annualInterestRate      Decimal              @map("annual_interest_rate") @db.Decimal(9, 8)
+  rateConvention          RateConvention       @map("rate_convention")
+  maxIncomeCommitment     Decimal              @map("max_income_commitment") @db.Decimal(9, 8)
+  termMinMonths           Int                  @map("term_min_months")
+  termMaxMonths           Int                  @map("term_max_months")
+  maxAgeAtEndMonths       Int                  @map("max_age_at_end_months")
+  ageRule                 AgeRule              @map("age_rule")
+  systems                 AmortizationSystem[]
+  /// [{ upToAgeYears, monthlyRate }] em ordem crescente de idade.
+  mipMonthlyRateByAge     Json                 @map("mip_monthly_rate_by_age")
+  dfiMonthlyRate          Decimal              @map("dfi_monthly_rate") @db.Decimal(12, 10)
+  adminFeeMonthly         Decimal              @map("admin_fee_monthly") @db.Decimal(14, 2)
+  /// [{ name, amount }]
+  otherMonthlyFees        Json                 @default("[]") @map("other_monthly_fees")
+  /// { maxPropertyValue, bands: [{ maxFamilyIncome, amount }] } ou null.
+  subsidy                 Json?
+  /// { allowed, minContributionMonths, maxPropertyValue, requiresNoOwnedProperty }
+  fgts                    Json
+
+  parameterSet ParameterSet @relation(fields: [parameterSetId], references: [id], onDelete: Restrict)
+  simulations  Simulation[]
+
+  @@unique([parameterSetId, code])
+  @@map("credit_lines")
+}
+
+// ---------------------------------------------------------------------------
+// Simulação
+// ---------------------------------------------------------------------------
+
+enum Verdict {
+  VIAVEL
+  VIAVEL_COM_AJUSTES
+  INVIAVEL
+}
+
+model Simulation {
+  id                  String              @id @default(uuid()) @db.Uuid
+  leadId              String              @map("lead_id") @db.Uuid
+  unitId              String?             @map("unit_id") @db.Uuid
+  /// Linha escolhida pelo motor (null quando nenhuma é elegível).
+  creditLineId        String?             @map("credit_line_id") @db.Uuid
+  system              AmortizationSystem?
+  termMonths          Int?                @map("term_months")
+  referenceDate       DateTime            @map("reference_date") @db.Date
+  propertyValue       Decimal             @map("property_value") @db.Decimal(14, 2)
+  financedAmount      Decimal?            @map("financed_amount") @db.Decimal(14, 2)
+  requiredDownPayment Decimal?            @map("required_down_payment") @db.Decimal(14, 2)
+  subsidy             Decimal?            @db.Decimal(14, 2)
+  fgtsUsed            Decimal?            @map("fgts_used") @db.Decimal(14, 2)
+  firstInstallment    Decimal?            @map("first_installment") @db.Decimal(14, 2)
+  lastInstallment     Decimal?            @map("last_installment") @db.Decimal(14, 2)
+  constructionFlow    Json?               @map("construction_flow")
+  verdict             Verdict
+  /// Versão dos parâmetros usada (spec §10 parametros_versao). Gravada também como FK.
+  parametersVersion   String              @map("parameters_version")
+  parameterSetId      String              @map("parameter_set_id") @db.Uuid
+  /// Entrada e resultado completos do motor (auditoria e reprodução do cálculo).
+  input               Json
+  result              Json
+  generatedAt         DateTime            @default(now()) @map("generated_at") @db.Timestamptz(3)
+  pdfUrl              String?             @map("pdf_url")
+
+  lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  unit         Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  creditLine   CreditLine?  @relation(fields: [creditLineId], references: [id], onDelete: Restrict)
+  parameterSet ParameterSet @relation(fields: [parameterSetId], references: [id], onDelete: Restrict)
+
+  @@index([leadId])
+  @@index([parameterSetId])
+  @@map("simulations")
+}
+
+// ---------------------------------------------------------------------------
+// Corretores, auditoria e idempotência do canal
+// ---------------------------------------------------------------------------
+
+model Broker {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  /// E.164 só com dígitos.
+  phone     String   @unique
+  email     String?
+  team      String?
+  active    Boolean  @default(true)
+  /// Escala de atendimento (formato livre no MVP; distribuição avançada é pós-MVP).
+  schedule  Json?
+  /// Usado pelo round-robin simples (Fase 6).
+  lastAssignedAt DateTime? @map("last_assigned_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  leads Lead[]
+
+  @@map("brokers")
+}
+
+/// Log de auditoria (RF-52). Só inserção; nunca atualizado nem apagado pela aplicação.
+model AuditLog {
+  /// Sequencial: dá a ordem exata dos eventos (vários na mesma transação têm o mesmo `at`).
+  id       BigInt   @id @default(autoincrement())
+  /// Quem fez (usuário da CLI, "seed", "system"). Sem tabela de usuários no MVP.
+  actor    String
+  entity   String
+  entityId String?  @map("entity_id")
+  action   String
+  before   Json?
+  after    Json?
+  reason   String?
+  at       DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([entity, entityId])
+  @@index([at])
+  @@map("audit_logs")
+}
+
+/// Idempotência de mensagens recebidas do canal (WA-AKG pode reentregar). Fila: Fase 3.
+model ProcessedMessage {
+  id          String    @id @default(uuid()) @db.Uuid
+  channel     Channel
+  /// key.id da mensagem no canal.
+  externalId  String    @map("external_id")
+  sessionId   String    @map("session_id")
+  leadId      String?   @map("lead_id") @db.Uuid
+  receivedAt  DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(3)
+
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@unique([channel, sessionId, externalId])
+  @@map("processed_messages")
+}

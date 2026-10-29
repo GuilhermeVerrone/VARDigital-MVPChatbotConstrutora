@@ -12,3 +12,4 @@ infra/certs/*
 infra/.state/
 .DS_Store
 .vitest/
+packages/db/src/generated/

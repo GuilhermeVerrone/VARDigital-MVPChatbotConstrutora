@@ -1,0 +1,30 @@
+{
+  "status": "ILUSTRATIVO",
+  "note": "Dados inventados para desenvolvimento. Telefones com DDD 00 (inexistente) e e-mails .invalid: não alcançam ninguém.",
+  "development": {
+    "slug": "residencial-exemplo",
+    "name": "Residencial Exemplo (ILUSTRATIVO)",
+    "city": "Cidade Exemplo - UF",
+    "description": "Empreendimento fictício para testes: 2 torres, apartamentos de 2 e 3 dormitórios, lazer completo.",
+    "deliveryDate": "2029-06-30",
+    "construction": { "signalRatio": 0.1, "balloonRatio": 0.3, "balloonIntervalMonths": 12 },
+    "faq": [
+      { "question": "Qual a previsão de entrega?", "answer": "A previsão de entrega é junho de 2029 (ILUSTRATIVO)." },
+      { "question": "Aceita FGTS?", "answer": "Sim, o FGTS pode compor a entrada, conforme as regras da linha de crédito." },
+      { "question": "Tem vaga de garagem?", "answer": "Todas as unidades têm 1 vaga; as de 3 dormitórios têm 2 (ILUSTRATIVO)." }
+    ],
+    "materials": []
+  },
+  "units": [
+    { "code": "A-101", "typology": "2 dormitórios", "areaM2": 42.5, "price": 219000 },
+    { "code": "A-504", "typology": "2 dormitórios", "areaM2": 45.0, "price": 240000 },
+    { "code": "A-1203", "typology": "2 dormitórios + varanda", "areaM2": 51.3, "price": 262000 },
+    { "code": "B-302", "typology": "3 dormitórios", "areaM2": 63.8, "price": 318000 },
+    { "code": "B-901", "typology": "3 dormitórios + suíte", "areaM2": 71.2, "price": 349000 },
+    { "code": "B-1501", "typology": "3 dormitórios cobertura", "areaM2": 98.4, "price": 520000 }
+  ],
+  "brokers": [
+    { "name": "Corretora Exemplo Um", "phone": "5500900000001", "email": "corretor1@exemplo.invalid", "team": "Plantão" },
+    { "name": "Corretor Exemplo Dois", "phone": "5500900000002", "email": "corretor2@exemplo.invalid", "team": "Plantão" }
+  ]
+}
