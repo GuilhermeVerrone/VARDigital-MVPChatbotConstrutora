@@ -373,19 +373,42 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-/// Idempotência de mensagens recebidas do canal (WA-AKG pode reentregar). Fila: Fase 3.
+enum InboxStatus {
+  PENDING
+  PROCESSING
+  DONE
+  /// Esgotou as tentativas; fica para inspeção manual.
+  DEAD
+}
+
+/// Fila de entrada (inbox) do canal e idempotência por `key.id` (WA-AKG pode reentregar).
+/// O webhook grava aqui e responde; o worker consome (Fase 3). Ao concluir, `payload` é apagado:
+/// o conteúdo da mensagem não fica guardado aqui, só os identificadores.
 model ProcessedMessage {
-  id          String    @id @default(uuid()) @db.Uuid
+  id          String      @id @default(uuid()) @db.Uuid
   channel     Channel
   /// key.id da mensagem no canal.
-  externalId  String    @map("external_id")
-  sessionId   String    @map("session_id")
-  leadId      String?   @map("lead_id") @db.Uuid
-  receivedAt  DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
-  processedAt DateTime? @map("processed_at") @db.Timestamptz(3)
+  externalId  String      @map("external_id")
+  sessionId   String      @map("session_id")
+  /// Conversa de origem (remoteJid): mensagens da mesma conversa são processadas em ordem.
+  chatKey     String      @map("chat_key")
+  leadId      String?     @map("lead_id") @db.Uuid
+  status      InboxStatus @default(PENDING)
+  /// Mensagem normalizada, enquanto não processada. Contém dados pessoais.
+  payload     Json?
+  attempts    Int         @default(0)
+  /// Não reivindicar antes disso (backoff entre tentativas).
+  availableAt DateTime    @default(now()) @map("available_at") @db.Timestamptz(3)
+  /// Reserva do worker; vencida = o worker caiu e outro pode retomar.
+  lockedUntil DateTime?   @map("locked_until") @db.Timestamptz(3)
+  lastError   String?     @map("last_error")
+  receivedAt  DateTime    @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt DateTime?   @map("processed_at") @db.Timestamptz(3)
 
   lead Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
 
   @@unique([channel, sessionId, externalId])
+  @@index([status, availableAt])
+  @@index([chatKey, receivedAt])
   @@map("processed_messages")
 }

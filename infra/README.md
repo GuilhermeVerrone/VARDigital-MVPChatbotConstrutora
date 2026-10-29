@@ -54,6 +54,26 @@ docker compose up -d bot-db
 
 Alterar parâmetros financeiros (cria nova versão com vigência e auditoria): ver [`packages/db/README.md`](../packages/db/README.md#cli-de-parâmetros).
 
+## Bot: fila, worker e eco (Fase 3)
+
+O bot precisa do banco migrado e da API key do WA-AKG (`WA_AKG_API_KEY` em `infra/.env`, gerada pelo `wa-akg-bootstrap.sh`). Na primeira vez a ordem é:
+
+```bash
+docker compose up -d --build
+./scripts/wa-akg-bootstrap.sh         # grava WA_AKG_API_KEY em infra/.env
+./scripts/db-setup.sh                 # migrations (inclui a fila de entrada)
+docker compose up -d bot              # recria o bot já com a API key
+```
+
+Com a sessão `piloto` conectada, qualquer mensagem de texto enviada ao número volta como `Eco: …`, com "digitando…" antes. Acompanhe:
+
+```bash
+docker compose logs -f bot
+docker compose exec bot-db psql -U bot -d bot -c "select external_id, status, attempts, last_error from processed_messages order by received_at desc limit 10"
+```
+
+Estados da fila: `PENDING` (aguardando ou em espera de nova tentativa), `PROCESSING`, `DONE` (conteúdo apagado), `DEAD` (esgotou as tentativas; inspecionar `last_error`). `ALLOWED_PHONES` (obrigatória) limita quem o bot atende e para quem envia. Variáveis: `INBOX_POLL_MS`, `INBOX_LOCK_MS`, `INBOX_MAX_ATTEMPTS` (defaults no `apps/bot/src/config.ts`).
+
 ## Comandos úteis
 
 ```bash

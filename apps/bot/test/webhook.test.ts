@@ -4,9 +4,12 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { signWaAkgPayload } from '@mvp/channel';
 import type { DependencyChecks } from '../src/deps';
+import type { InboxWriter } from '../src/inbox';
 import { buildServer } from '../src/server';
 import { WA_AKG_WEBHOOK_PATH } from '../src/routes/wa-akg-webhook';
 
+import { createPhoneAllowlist } from '@mvp/channel';
+const allowlist = createPhoneAllowlist(['5511987654321']);
 const secret = 'a-very-long-test-secret';
 const okDeps: DependencyChecks = {
   postgres: async () => ({ ok: true, latencyMs: 1 }),
@@ -20,6 +23,9 @@ const testPayload = JSON.stringify({
   data: { message: 'This is a test webhook from WA-AKG', timestamp: '2026-10-26T12:00:00.000Z' },
 });
 
+const inbox: InboxWriter = { enqueue: async () => true };
+const base = { webhookSecret: secret, inbox, sessionId: 'piloto', allowlist, deps: okDeps };
+
 let app: ReturnType<typeof buildServer> | undefined;
 afterEach(async () => {
   await app?.close();
@@ -27,7 +33,7 @@ afterEach(async () => {
 });
 
 function post(body: string, signature?: string) {
-  app ??= buildServer({ webhookSecret: secret, deps: okDeps });
+  app ??= buildServer(base);
   return app.inject({
     method: 'POST',
     url: WA_AKG_WEBHOOK_PATH,
@@ -40,7 +46,7 @@ describe('POST /webhooks/wa-akg', () => {
   it('aceita o webhook de teste do WA-AKG com assinatura válida', async () => {
     const res = await post(testPayload, signWaAkgPayload(testPayload, secret));
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ received: true });
+    expect(res.json()).toEqual({ received: true, ignored: 'not_message_event' });
   });
 
   it('rejeita sem assinatura', async () => {
@@ -72,7 +78,7 @@ describe('POST /webhooks/wa-akg', () => {
 
   it('aceita message.received e grava captura bruta quando habilitada', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'capture-'));
-    app = buildServer({ webhookSecret: secret, deps: okDeps, captureDir: dir });
+    app = buildServer({ ...base, captureDir: dir });
     const body = JSON.stringify({
       event: 'message.received',
       sessionId: 'piloto',
@@ -89,14 +95,14 @@ describe('POST /webhooks/wa-akg', () => {
 
 describe('health', () => {
   it('GET /health', async () => {
-    app = buildServer({ webhookSecret: secret, deps: okDeps });
+    app = buildServer(base);
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.json()).toEqual({ status: 'ok' });
   });
 
   it('GET /health/deps retorna 503 se alguma dependência falhar', async () => {
     app = buildServer({
-      webhookSecret: secret,
+      ...base,
       deps: { ...okDeps, ollama: async () => ({ ok: false, latencyMs: 3000, detail: 'timeout' }) },
     });
     const res = await app.inject({ method: 'GET', url: '/health/deps' });
@@ -105,7 +111,7 @@ describe('health', () => {
   });
 
   it('outras rotas continuam aceitando JSON normal (parser bruto é só do webhook)', async () => {
-    app = buildServer({ webhookSecret: secret, deps: okDeps });
+    app = buildServer(base);
     app.post('/echo', async (req) => req.body);
     const res = await app.inject({ method: 'POST', url: '/echo', payload: { a: 1 } });
     expect(res.json()).toEqual({ a: 1 });

@@ -106,6 +106,10 @@ services:
       BOT_TLS_KEY_FILE: /certs/bot.key
       WA_AKG_WEBHOOK_SECRET: ${WA_AKG_WEBHOOK_SECRET:?defina em infra/.env}
       BOT_DATABASE_URL: postgres://bot:${BOT_DB_PASSWORD}@bot-db:5432/bot
+      WA_AKG_BASE_URL: http://wa-akg:3000
+      WA_AKG_API_KEY: ${WA_AKG_API_KEY:-}
+      WA_AKG_SESSION_ID: ${WA_AKG_SESSION_ID:-piloto}
+      ALLOWED_PHONES: ${ALLOWED_PHONES:?defina em infra/.env (telefones permitidos, separados por vírgula)}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       WEBHOOK_CAPTURE_DIR: ${WEBHOOK_CAPTURE_DIR:-}
     extra_hosts:

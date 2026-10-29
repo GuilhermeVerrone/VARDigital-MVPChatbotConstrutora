@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
+import { createPhoneAllowlist, restrictChannel, WaAkgAdapter } from '@mvp/channel';
+import { createDb } from '@mvp/db';
 import { loadConfig } from './config';
 import { createDependencyChecks } from './deps';
+import { createEchoHandler } from './handlers/echo';
+import { createDbInbox } from './inbox';
 import { buildServer } from './server';
+import { createWorker } from './worker';
 
 const config = loadConfig();
 
@@ -10,8 +15,24 @@ const https =
     ? { cert: readFileSync(config.BOT_TLS_CERT_FILE), key: readFileSync(config.BOT_TLS_KEY_FILE) }
     : null;
 
+const db = createDb(config.BOT_DATABASE_URL);
+const inbox = createDbInbox(db, { lockMs: config.INBOX_LOCK_MS, maxAttempts: config.INBOX_MAX_ATTEMPTS });
+const allowlist = createPhoneAllowlist(config.ALLOWED_PHONES);
+const channel = restrictChannel(
+  new WaAkgAdapter({
+  baseUrl: config.WA_AKG_BASE_URL,
+  apiKey: config.WA_AKG_API_KEY,
+  sessionId: config.WA_AKG_SESSION_ID,
+  }),
+  allowlist,
+);
+
 const app = buildServer({
   webhookSecret: config.WA_AKG_WEBHOOK_SECRET,
+  inbox,
+  sessionId: config.WA_AKG_SESSION_ID,
+  allowlist,
+  onEnqueued: () => worker.kick(),
   deps: createDependencyChecks({ databaseUrl: config.BOT_DATABASE_URL, ollamaBaseUrl: config.OLLAMA_BASE_URL }),
   captureDir: config.WEBHOOK_CAPTURE_DIR,
   fastify: {
@@ -23,16 +44,36 @@ const app = buildServer({
   },
 });
 
+const worker = createWorker({
+  inbox,
+  // Fase 5 troca o eco pelo orquestrador.
+  handle: createEchoHandler(channel),
+  log: app.log,
+  maxAttempts: config.INBOX_MAX_ATTEMPTS,
+  pollMs: config.INBOX_POLL_MS,
+});
+
+let shuttingDown = false;
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     app.log.info({ signal }, 'encerrando');
-    void app.close().then(() => process.exit(0));
+    // Primeiro para de receber, depois deixa o worker terminar a mensagem em curso.
+    void app
+      .close()
+      .then(() => worker.stop())
+      .then(() => db.$disconnect())
+      .finally(() => process.exit(0));
   });
 }
 
 app
   .listen({ host: config.BOT_HOST, port: config.BOT_PORT })
-  .then(() => app.log.info({ tls: Boolean(https) }, 'bot pronto'))
+  .then(() => {
+    worker.start();
+    app.log.info({ tls: Boolean(https), session: config.WA_AKG_SESSION_ID }, 'bot pronto');
+  })
   .catch((err: unknown) => {
     app.log.fatal({ err }, 'falha ao iniciar');
     process.exit(1);

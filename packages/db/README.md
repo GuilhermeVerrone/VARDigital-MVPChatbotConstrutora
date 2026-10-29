@@ -19,7 +19,7 @@ Banco do bot (PostgreSQL **separado** do WA-AKG, decisão D5), via Prisma 7 (`pr
 | — | `ParameterSet` / `parameter_sets` | Versão do conjunto de parâmetros: `version`, `status`, `validFrom`, `validTo`, parâmetros globais |
 | Corretor | `Broker` / `brokers` | `lastAssignedAt` para o round-robin da Fase 6 |
 | LogAuditoria | `AuditLog` / `audit_logs` | `actor` (texto; não há tabela de usuários no MVP), `entity`, `entityId`, `action`, `before`, `after`, `reason`, `at` |
-| MensagemProcessada | `ProcessedMessage` / `processed_messages` | Único por (canal, sessão, `key.id`): idempotência da Fase 3 |
+| MensagemProcessada | `ProcessedMessage` / `processed_messages` | Único por (canal, sessão, `key.id`): idempotência **e fila de entrada** da Fase 3 (status, tentativas, reserva, payload temporário). Ver `src/inbox.ts` |
 
 Fora do MVP (sem tabela ainda): `DistribuicaoLead`, `ResultadoContato`.
 

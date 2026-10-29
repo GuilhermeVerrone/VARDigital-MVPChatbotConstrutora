@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
-    "start": "node dist/main.cjs",
-    "build": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/main.cjs --sourcemap"
+    "start": "node dist/main.mjs",
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/main.mjs --sourcemap --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\""
   },
   "dependencies": {
     "@mvp/channel": "workspace:*",
+    "@mvp/db": "workspace:*",
     "fastify": "^5.12.7",
     "pg": "^8.23.1",
     "zod": "^4.6.7"

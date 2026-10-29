@@ -21,6 +21,15 @@ export {
   type PublishResult,
   type StoredParameterSet,
 } from './parameters/repository';
+export {
+  claimNextInbound,
+  completeInbound,
+  enqueueInbound,
+  failInbound,
+  type ClaimOptions,
+  type EnqueueInboundArgs,
+  type InboxItem,
+} from './inbox';
 export { loadCatalog, seedDatabase, type Catalog, type SeedSummary } from './seed';
 export {
   buildSimulationInput,

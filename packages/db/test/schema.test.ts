@@ -87,7 +87,7 @@ describe('garantias no banco (independem da aplicação)', () => {
   });
 
   it('mensagem do canal é registrada uma única vez (idempotência por key.id)', async () => {
-    const msg = { channel: 'WHATSAPP' as const, sessionId: 'piloto', externalId: '3EB0ABC' };
+    const msg = { channel: 'WHATSAPP' as const, sessionId: 'piloto', externalId: '3EB0ABC', chatKey: '5500911110000@s.whatsapp.net' };
     await t.db.processedMessage.create({ data: msg });
     await expect(t.db.processedMessage.create({ data: msg })).rejects.toThrow(/Unique constraint/);
     // mesmo id em outra sessão é outra mensagem

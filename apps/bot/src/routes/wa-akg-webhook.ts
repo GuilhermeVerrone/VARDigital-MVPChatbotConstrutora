@@ -2,7 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { verifyWaAkgSignature } from '@mvp/channel';
+import { parseWaAkgWebhook, type PhoneAllowlist, verifyWaAkgSignature } from '@mvp/channel';
+import type { InboxWriter } from '../inbox';
 import { maskJid } from '../lib/mask';
 
 export const WA_AKG_WEBHOOK_PATH = '/webhooks/wa-akg';
@@ -17,6 +18,13 @@ const envelopeSchema = z.object({
 
 export interface WaAkgWebhookOptions {
   secret: string;
+  inbox: InboxWriter;
+  /** Só mensagens desta sessão do WA-AKG entram na fila. */
+  sessionId: string;
+  /** Só quem está na lista entra na fila; os demais são descartados sem gravar nada. */
+  allowlist: PhoneAllowlist;
+  /** Chamado depois de gravar uma mensagem nova (acorda o worker). */
+  onEnqueued?: (() => void) | undefined;
   captureDir?: string | undefined;
 }
 
@@ -47,8 +55,33 @@ export function waAkgWebhookRoutes(app: FastifyInstance, opts: WaAkgWebhookOptio
 
     if (opts.captureDir) await capture(opts.captureDir, envelope.event, raw);
 
-    // Fase 0: só confirma recebimento. Fila/idempotência entram na Fase 3.
-    return reply.code(200).send({ received: true });
+    const parsed = parseWaAkgWebhook(envelope);
+    if (!parsed.ok) {
+      // Eventos que não são mensagem (connection.update, message.sent…) são esperados: 200 sem fila.
+      if (parsed.reason === 'invalid_payload') req.log.warn('message.received com formato inesperado; ignorado');
+      return reply.code(200).send({ received: true, ignored: parsed.reason });
+    }
+    if (parsed.message.sessionId !== opts.sessionId) {
+      return reply.code(200).send({ received: true, ignored: 'other_session' });
+    }
+
+    if (!opts.allowlist.isAllowed(parsed.message.chatId)) {
+      req.log.warn({ chat: maskJid(parsed.message.chatId) }, 'remetente fora da lista de permitidos; descartado');
+      return reply.code(200).send({ received: true, ignored: 'not_allowed' });
+    }
+
+    // Grava e responde. Se a gravação falhar, 500: o WA-AKG não reenvia (uma tentativa), então o
+    // erro precisa ficar visível no log.
+    let created: boolean;
+    try {
+      created = await opts.inbox.enqueue(parsed.message);
+    } catch (err) {
+      req.log.error({ err, messageId: parsed.message.externalId }, 'falha ao gravar mensagem na fila');
+      return reply.code(500).send({ error: 'enqueue failed' });
+    }
+    if (created) opts.onEnqueued?.();
+    else req.log.info({ messageId: parsed.message.externalId }, 'reentrega ignorada (já na fila)');
+    return reply.code(200).send({ received: true, queued: created, duplicate: !created });
   });
 }
 
