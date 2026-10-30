@@ -19,6 +19,8 @@ export interface SimulationChoices {
   system?: 'SAC' | 'PRICE';
   desiredTermMonths?: number;
   useFullDownPayment?: boolean;
+  /** Entrada informada num ajuste ("e se eu der 80 mil?"): vale só nesta simulação, o perfil não muda. */
+  availableDownPayment?: number;
 }
 
 /** Monta a entrada do motor. Pura: não acessa banco. */
@@ -68,7 +70,7 @@ export function buildSimulationInput(args: {
           fgts: fgts(p.coApplicantFgtsBalance, p.coApplicantFgtsMonths),
         }
       : null,
-    availableDownPayment: num(p.availableDownPayment),
+    availableDownPayment: choices.availableDownPayment ?? num(p.availableDownPayment),
     ownsResidentialProperty: p.ownsResidentialProperty,
     firstFinancing: p.firstFinancing,
     construction,
@@ -141,4 +143,15 @@ export async function runAndRecordSimulation(db: Db, args: RunSimulationArgs): P
     },
   });
   return { simulation, result };
+}
+
+/**
+ * Unidade usada na simulação de quem escolheu uma tipologia: a de menor preço disponível. É um
+ * valor de referência (o lead não escolheu uma unidade específica) e a mensagem diz isso.
+ */
+export async function pickUnitForTypology(db: Db, typology: string): Promise<Unit | null> {
+  return db.unit.findFirst({
+    where: { typology, status: 'AVAILABLE', development: { active: true } },
+    orderBy: [{ price: 'asc' }, { code: 'asc' }],
+  });
 }

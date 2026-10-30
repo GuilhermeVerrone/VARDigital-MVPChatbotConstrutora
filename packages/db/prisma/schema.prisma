@@ -325,6 +325,7 @@ model Simulation {
   unit         Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
   creditLine   CreditLine?  @relation(fields: [creditLineId], references: [id], onDelete: Restrict)
   parameterSet ParameterSet @relation(fields: [parameterSetId], references: [id], onDelete: Restrict)
+  jobs         DeliveryJob[]
 
   @@index([leadId])
   @@index([parameterSetId])
@@ -349,7 +350,8 @@ model Broker {
   lastAssignedAt DateTime? @map("last_assigned_at") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  leads Lead[]
+  leads       Lead[]
+  crmContacts CrmContact[]
 
   @@map("brokers")
 }
@@ -425,4 +427,80 @@ model ChatSession {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("chat_sessions")
+}
+
+// ---------------------------------------------------------------------------
+// CRM simulado e entregas (Fase 6)
+// ---------------------------------------------------------------------------
+
+/// Contato no CRM simulado (spec §11: `CrmAdapter`). Fica separado de `leads` de propósito: é o
+/// "outro sistema". A chave de deduplicação é o telefone (RF-41); criar duas vezes atualiza.
+model CrmContact {
+  id            String   @id @default(uuid()) @db.Uuid
+  /// E.164 só com dígitos.
+  phone         String   @unique
+  name          String?
+  email         String?
+  /// Corretor responsável no CRM (RF-41: lead já existente avisa o responsável).
+  ownerBrokerId String?  @map("owner_broker_id") @db.Uuid
+  /// Último estado enviado pelo bot (status, classe, empreendimento...), para consulta.
+  data          Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  owner       Broker?         @relation(fields: [ownerBrokerId], references: [id], onDelete: SetNull)
+  simulations CrmSimulation[]
+
+  @@index([ownerBrokerId])
+  @@map("crm_contacts")
+}
+
+/// Simulação anexada a um contato do CRM. `simulationId` é a referência externa: anexar duas
+/// vezes a mesma simulação não duplica.
+model CrmSimulation {
+  id           String   @id @default(uuid()) @db.Uuid
+  contactId    String   @map("contact_id") @db.Uuid
+  simulationId String   @unique @map("simulation_id") @db.Uuid
+  /// Resumo legível (parecer, valores, parâmetros): o que o CRM mostraria ao corretor.
+  summary      Json
+  attachedAt   DateTime @default(now()) @map("attached_at") @db.Timestamptz(3)
+
+  contact CrmContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@map("crm_simulations")
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  DONE
+  /// Esgotou as tentativas (ou erro permanente); fica para inspeção e reenvio manual.
+  DEAD
+}
+
+/// Fila de entregas de saída (CRM e corretor), em Postgres como a de entrada. Um job por
+/// (tipo, simulação): `dedupeKey` único impede enfileirar duas vezes. Só guarda ids, nenhum dado
+/// pessoal. Falha enfileira de novo com espera (spec §7.2: nenhum lead se perde).
+model DeliveryJob {
+  id           String    @id @default(uuid()) @db.Uuid
+  /// CRM_SYNC | BROKER_NOTIFY
+  kind         String
+  simulationId String    @map("simulation_id") @db.Uuid
+  /// Ex.: "BROKER_NOTIFY:<simulationId>"; para reenvios após ajuste, inclui um sufixo.
+  dedupeKey    String    @unique @map("dedupe_key")
+  /// Parâmetros do job (ex.: { update: true }). Sem dado pessoal.
+  payload      Json      @default("{}")
+  status       JobStatus @default(PENDING)
+  attempts     Int       @default(0)
+  availableAt  DateTime  @default(now()) @map("available_at") @db.Timestamptz(3)
+  lockedUntil  DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastError    String?   @map("last_error")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  processedAt  DateTime? @map("processed_at") @db.Timestamptz(3)
+
+  simulation Simulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+
+  @@index([status, availableAt])
+  @@map("delivery_jobs")
 }

@@ -1,7 +1,20 @@
 export { createDb, type Db, type DbTx } from './client';
+export { assignBroker, type AssignedBroker } from './brokers';
+export {
+  claimNextJob,
+  completeJob,
+  enqueueJob,
+  failJob,
+  requeueDeadJob,
+  type ClaimJobOptions,
+  type DeliveryJobItem,
+  type EnqueueJobArgs,
+  type JobKind,
+} from './jobs';
+export { loadSimulationBundle, markDelivered, markSimulated, scoreClassFor, type SimulationBundle } from './dossier-data';
 export { addDays, dateFromIso, isoFromDate, num, todayIso } from './convert';
 export * from './generated/prisma/enums';
-export { Prisma, type Broker, type CreditLine as CreditLineRow, type Development, type FinancialProfile, type Lead, type ParameterSet, type Simulation, type Unit } from './generated/prisma/client';
+export { Prisma, type Broker, type CrmContact, type CrmSimulation, type CreditLine as CreditLineRow, type Development, type FinancialProfile, type Lead, type ParameterSet, type Simulation, type Unit } from './generated/prisma/client';
 export { applyChange, diffParameters, InvalidParameterPathError, parseCliValue, type ParameterChange } from './parameters/changes';
 export {
   changeParameters,
@@ -34,6 +47,7 @@ export { loadCatalog, seedDatabase, type Catalog, type SeedSummary } from './see
 export {
   buildSimulationInput,
   MissingSimulationDataError,
+  pickUnitForTypology,
   runAndRecordSimulation,
   type RecordedSimulation,
   type RunSimulationArgs,
