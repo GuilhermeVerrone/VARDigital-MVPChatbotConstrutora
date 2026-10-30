@@ -122,7 +122,7 @@ describe('coleta', () => {
     const last = await b.say('sim');
     expect(last.join()).toBeDefined();
     lead = await t.db.lead.findFirstOrThrow({ include: { conversations: true } });
-    expect(lead.conversations[0]!.state).toBe('DONE');
+    expect(lead.conversations[0]!.state).toBe('RESULT'); // calculou e apresentou (Fase 6)
     const prof = await t.db.financialProfile.findFirstOrThrow();
     expect(Number(prof.grossMonthlyIncome)).toBe(7000);
     expect(prof).toMatchObject({ incomeType: 'CLT', ownsResidentialProperty: false, firstFinancing: true, fgtsContributionMonths: 36 });

@@ -33,6 +33,9 @@ describe('migrations', () => {
       'consents', // Consentimento
       'conversations', // Conversa
       'credit_lines', // LinhaCredito
+      'crm_contacts', // CRM simulado (Fase 6)
+      'crm_simulations', // simulações anexadas ao contato
+      'delivery_jobs', // fila de entregas de saída (CRM, corretor)
       'developments', // Empreendimento
       'financial_profiles', // PerfilFinanceiro
       'leads', // Lead

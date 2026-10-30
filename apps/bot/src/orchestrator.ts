@@ -1,13 +1,17 @@
 import { createHmac } from 'node:crypto';
 import type { ChannelAdapter, InboundMessage } from '@mvp/channel';
 import {
-  applyInterpretation, CONSENT_TEXT_VERSION, handleNonText, initialSnapshot, interpretStep, questionFor, T, withResume,
+  applyInterpretation, CONSENT_TEXT_VERSION, enterResult, failSimulation, handleNonText, initialSnapshot, interpretStep, questionFor,
+  replyPreview, T, withResume,
   type Collected, type Effect, type FlowEnv, type Reply, type Snapshot, type StepResult,
 } from '@mvp/conversation';
 import {
-  deleteSession, listActiveTypologies, loadChat, saveSession, saveTurn, startConversation, todayIso,
+  deleteSession, isSimulationDataError, listActiveTypologies, loadChat, loadSimulationBundle, MissingSimulationDataError, pickUnitForTypology,
+  runAndRecordSimulation, saveSession, saveTurn, scoreClassFor, startConversation, todayIso,
   type ChatIdentity, type Db, type LoadedChat, type TurnWrites,
 } from '@mvp/db';
+import { buildSimulationPdf, pdfFileName, resultMessages } from '@mvp/presentation';
+import { toView } from './view';
 import type { InterpretDeps } from '@mvp/llm';
 import { parseCommand, parseYesNo } from '@mvp/parsers';
 
@@ -25,8 +29,8 @@ export interface OrchestratorOptions {
   resumeGapMs?: number;
   /** Depois deste tempo a conversa expira e o lead precisa consentir de novo (RF-08: 7 dias). */
   retentionMs?: number;
-  /** Chamado quando a coleta termina e é confirmada (Fase 6 liga o motor aqui). */
-  onCollected?: (args: { leadId: string; conversationId: string; data: Collected }) => Promise<void>;
+  /** Chamado depois de gravar entregas novas (CRM, corretor): acorda o worker de entregas. */
+  onJobsEnqueued?: () => void;
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -113,13 +117,21 @@ export function createOrchestrator(opts: OrchestratorOptions) {
     };
   }
 
-  const replyText = (r: Reply) => ('text' in r ? r.text : r.list.title);
+  const replyText = (r: Reply) => ('list' in r ? r.list.title : replyPreview(r));
 
   async function send(chatId: string, r: Reply): Promise<void> {
     await bestEffort(channel.setPresence(chatId, 'composing'));
     await sleep(Math.min(maxTyping, 400 + replyText(r).length * 20));
-    if ('text' in r) await channel.sendText(chatId, r.text);
-    else await channel.sendList(chatId, { title: r.list.title, options: r.list.options.map((title) => ({ title })), ...(r.list.footer ? { footer: r.list.footer } : {}) });
+    if ('pdf' in r) {
+      // O PDF é gerado agora, da simulação gravada: os valores são os que o motor calculou.
+      const view = toView(await loadSimulationBundle(db, r.pdf.simulationId));
+      const data = await buildSimulationPdf(view);
+      await channel.sendDocument(chatId, { data, fileName: pdfFileName(view), mimeType: 'application/pdf', caption: r.pdf.caption });
+    } else if ('text' in r) {
+      await channel.sendText(chatId, r.text);
+    } else {
+      await channel.sendList(chatId, { title: r.list.title, options: r.list.options.map((title) => ({ title })), ...(r.list.footer ? { footer: r.list.footer } : {}) });
+    }
   }
 
   /** Envia as respostas em ordem; depois de cada uma grava o que ainda falta (outbox). */
@@ -135,6 +147,56 @@ export function createOrchestrator(opts: OrchestratorOptions) {
     } finally {
       await bestEffort(channel.setPresence(chatId, 'paused'));
     }
+  }
+
+  // ---------- cálculo e apresentação do resultado (Fase 6) ----------
+
+  /**
+   * Segunda metade do turno que confirmou os dados (ou um ajuste): roda o motor com os parâmetros
+   * vigentes, grava a simulação, enfileira CRM e corretor junto com o novo estado e envia o resultado.
+   * O estado SIMULATING fica gravado antes: se o processo cair aqui, a reentrega (ou a próxima
+   * mensagem) chega neste mesmo ponto e refaz o cálculo, sem pedir nada de novo ao lead.
+   */
+  async function finishSimulation(chat: { conversationId: string; leadId: string }, snap: Snapshot, env: FlowEnv, chatId: string): Promise<Snapshot> {
+    const at = now().toISOString();
+    let result: StepResult;
+    let writes: TurnWrites | undefined;
+    try {
+      const unit = snap.data.typology ? await pickUnitForTypology(db, snap.data.typology) : null;
+      if (!unit) throw new MissingSimulationDataError(['unit']);
+      const adjust = snap.adjust ?? {};
+      const { simulation, result: sim } = await runAndRecordSimulation(db, {
+        leadId: chat.leadId,
+        unitId: unit.id,
+        referenceDate: env.today,
+        choices: {
+          // Ajuste de entrada: o lead diz quanto consegue pôr, então a entrada é usada por inteiro.
+          ...(adjust.downPayment !== undefined ? { availableDownPayment: adjust.downPayment, useFullDownPayment: true } : {}),
+          ...(adjust.termMonths !== undefined ? { desiredTermMonths: adjust.termMonths } : {}),
+        },
+      });
+      const view = toView(await loadSimulationBundle(db, simulation.id));
+      // O corretor já recebeu um resumo deste lead? Então esta é uma atualização, não um lead novo.
+      const notified = (await db.deliveryJob.count({ where: { kind: 'BROKER_NOTIFY', simulation: { leadId: chat.leadId } } })) > 0;
+      result = enterResult(snap, env, { simulationId: simulation.id, messages: resultMessages(view), brokerAlreadyNotified: notified, at });
+      writes = {
+        status: 'SIMULATED',
+        scoreClass: scoreClassFor(sim.verdict),
+        jobs: [
+          { kind: 'CRM_SYNC', simulationId: simulation.id },
+          { kind: 'BROKER_NOTIFY', simulationId: simulation.id, payload: { update: notified } },
+        ],
+      };
+    } catch (err) {
+      // Dado que falta ou parâmetro fora de vigência não se resolve repetindo: oferece o corretor.
+      if (!isSimulationDataError(err)) throw err;
+      result = failSimulation(snap, at);
+      writes = toWrites(result.effects, result.snapshot.data);
+    }
+    await saveTurn(db, { conversationId: chat.conversationId, leadId: chat.leadId, state: result.snapshot.state, ...persistable(result.snapshot), writes });
+    if (writes.jobs?.length) opts.onJobsEnqueued?.();
+    await flush(chat, result.snapshot, chatId);
+    return result.snapshot;
   }
 
   // ---------- antes do consentimento ----------
@@ -203,10 +265,17 @@ export function createOrchestrator(opts: OrchestratorOptions) {
   async function inConversation(msg: InboundMessage, chat: ConversationChat, env: FlowEnv): Promise<void> {
     const snap = restore(chat);
 
-    // Reentrega: a etapa já foi aplicada; só termina de enviar o que faltou.
+    // Reentrega: a etapa já foi aplicada; só termina de enviar o que faltou (e de calcular, se parou aí).
     if (snap.lastInboundId === msg.externalId) {
       await flush(chat, snap, msg.chatId);
+      if (snap.state === 'SIMULATING') await finishSimulation(chat, snap, env, msg.chatId);
       return;
+    }
+
+    // Uma simulação ficou pela metade (o processo caiu depois de confirmar): termina antes de tratar a mensagem nova.
+    if (snap.state === 'SIMULATING') {
+      const finished = await finishSimulation(chat, snap, env, msg.chatId);
+      return inConversation(msg, { ...chat, state: finished.state, context: persistable(finished).context, history: finished.history }, env);
     }
 
     // Passou da retenção: o lead precisa consentir de novo.
@@ -237,9 +306,7 @@ export function createOrchestrator(opts: OrchestratorOptions) {
     });
     await flush(chat, result.snapshot, msg.chatId);
 
-    if (result.effects.some((e) => e.type === 'collected')) {
-      await opts.onCollected?.({ leadId: chat.leadId, conversationId: chat.conversationId, data: result.snapshot.data });
-    }
+    if (result.snapshot.state === 'SIMULATING') await finishSimulation(chat, result.snapshot, env, msg.chatId);
   }
 
   const hashOf = (msg: InboundMessage) => createHmac('sha256', opts.hashSecret).update(msg.chatId).digest('hex');

@@ -1,6 +1,7 @@
 import type { Db } from './client';
 import type { Prisma } from './generated/prisma/client';
-import type { IncomeType, LeadStatus } from './generated/prisma/enums';
+import type { IncomeType, LeadStatus, ScoreClass } from './generated/prisma/enums';
+import { enqueueJob, type EnqueueJobArgs } from './jobs';
 import { dateFromIso } from './convert';
 
 // Persistência da conversa (Fase 5). O estado da máquina (`context`) é opaco aqui: quem entende é
@@ -110,6 +111,10 @@ export interface TurnWrites {
   handoff?: boolean;
   audit?: string[];
   profile?: ProfileInput;
+  /** Classe do lead pelo parecer da simulação (Fase 6). */
+  scoreClass?: ScoreClass;
+  /** Entregas (CRM, corretor) gravadas na mesma transação do estado: sem "estado novo, entrega perdida". */
+  jobs?: EnqueueJobArgs[];
 }
 
 export interface SaveTurnArgs {
@@ -139,7 +144,10 @@ export async function saveTurn(db: Db, a: SaveTurnArgs): Promise<void> {
       if (!owner || owner.id === a.leadId) leadData.phone = w.lead.phone;
     }
     if (w.status) leadData.status = w.status;
+    if (w.scoreClass) leadData.scoreClass = w.scoreClass;
     if (Object.keys(leadData).length > 0) await tx.lead.update({ where: { id: a.leadId }, data: leadData });
+
+    for (const job of w.jobs ?? []) await enqueueJob(tx, job);
 
     for (const action of w.audit ?? []) {
       await tx.auditLog.create({ data: { actor: 'bot', entity: 'lead', entityId: a.leadId, action } });

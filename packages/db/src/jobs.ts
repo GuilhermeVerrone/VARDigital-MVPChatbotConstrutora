@@ -72,7 +72,8 @@ export async function claimNextJob(db: Db, opts: ClaimJobOptions): Promise<Deliv
             OR (c.status = 'PROCESSING'::"JobStatus" AND c.locked_until < ${now}))
           AND c.attempts < ${opts.maxAttempts}
           AND c.kind = ANY(${kinds})
-        ORDER BY c.available_at, c.created_at, c.id
+        -- O aviso ao corretor é o que tem prazo (≤ 1 min); o CRM vem logo depois.
+        ORDER BY c.available_at, c.created_at, (c.kind = 'BROKER_NOTIFY') DESC, c.id
         LIMIT 1
         FOR UPDATE SKIP LOCKED)
     RETURNING id, kind, simulation_id, payload, attempts`;
@@ -110,4 +111,9 @@ export async function requeueDeadJob(db: Db, id: string, now: Date = new Date())
     data: { status: 'PENDING', attempts: 0, availableAt: now, lockedUntil: null },
   });
   return count === 1;
+}
+
+/** Guarda o progresso do job (ex.: "o card já foi enviado"), para a nova tentativa não repetir o que já saiu. */
+export async function setJobPayload(db: Db, id: string, payload: Prisma.InputJsonValue): Promise<void> {
+  await db.deliveryJob.update({ where: { id }, data: { payload } });
 }

@@ -4,7 +4,7 @@ import {
   correctionOptions, fieldsFor, isAnswerState, resolveCorrectionTarget, resultOptions, STEPS, summaryLines,
   type AnswerState, type ResultChoice,
 } from './steps';
-import { brl, T } from './templates';
+import { T } from './templates';
 import type { Collected, Effect, FlowEnv, QuestionState, Reply, Snapshot, StateName, StepResult } from './types';
 
 export const MAX_FAILURES = 3;

@@ -6,6 +6,7 @@ export {
   enqueueJob,
   failJob,
   requeueDeadJob,
+  setJobPayload,
   type ClaimJobOptions,
   type DeliveryJobItem,
   type EnqueueJobArgs,
@@ -46,6 +47,7 @@ export {
 export { loadCatalog, seedDatabase, type Catalog, type SeedSummary } from './seed';
 export {
   buildSimulationInput,
+  isSimulationDataError,
   MissingSimulationDataError,
   pickUnitForTypology,
   runAndRecordSimulation,

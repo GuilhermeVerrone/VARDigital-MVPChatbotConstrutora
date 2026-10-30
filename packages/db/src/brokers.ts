@@ -16,7 +16,8 @@ export interface AssignedBroker {
  * telefone, RF-41); senão escolhe o próximo da roleta. Transacional com trava de linha, então dois
  * leads simultâneos não recebem o mesmo "próximo". Null se não houver corretor ativo.
  */
-export async function assignBroker(db: Db, leadId: string, now: Date = new Date()): Promise<AssignedBroker | null> {
+export async function assignBroker(db: Db, leadId: string, opts: { now?: Date; phone?: string | null } = {}): Promise<AssignedBroker | null> {
+  const now = opts.now ?? new Date();
   return db.$transaction(async (tx) => {
     const lead = await tx.lead.findUniqueOrThrow({ where: { id: leadId }, include: { broker: true } });
     if (lead.broker?.active) {
@@ -24,9 +25,8 @@ export async function assignBroker(db: Db, leadId: string, now: Date = new Date(
     }
 
     // Lead já conhecido do CRM (mesmo telefone) com responsável ativo: vincula a ele.
-    const contact = lead.phone
-      ? await tx.crmContact.findUnique({ where: { phone: lead.phone }, include: { owner: true } })
-      : null;
+    const phone = lead.phone ?? opts.phone ?? null;
+    const contact = phone ? await tx.crmContact.findUnique({ where: { phone }, include: { owner: true } }) : null;
     let chosen = contact?.owner?.active ? contact.owner : null;
     const existing = chosen !== null;
 

@@ -1,8 +1,8 @@
-import { simulate, type SimulationInput, type SimulationResult } from '@mvp/simulation';
+import { InvalidSimulationInputError, ParametersNotInForceError, simulate, type SimulationInput, type SimulationResult } from '@mvp/simulation';
 import type { Db } from './client';
 import { dateFromIso, isoFromDate, jsonOrDbNull, num } from './convert';
 import type { Development, FinancialProfile, Lead, Prisma, Simulation, Unit } from './generated/prisma/client';
-import { getParametersInForce, type LoadParametersOptions } from './parameters/repository';
+import { getParametersInForce, IllustrativeParametersRejectedError, NoParametersInForceError, type LoadParametersOptions } from './parameters/repository';
 
 // Liga banco e motor: monta a entrada a partir do lead/perfil/unidade, lê os parâmetros
 // VIGENTES na data de referência e grava a simulação com a versão usada (spec §10
@@ -154,4 +154,19 @@ export async function pickUnitForTypology(db: Db, typology: string): Promise<Uni
     where: { typology, status: 'AVAILABLE', development: { active: true } },
     orderBy: [{ price: 'asc' }, { code: 'asc' }],
   });
+}
+
+/**
+ * A simulação não pode ser feita com os dados/parâmetros atuais e repetir não resolve (dado
+ * faltando, entrada inválida, sem parâmetros vigentes). Falha de banco ou de rede não entra aqui:
+ * essa se repete pela fila.
+ */
+export function isSimulationDataError(err: unknown): boolean {
+  return (
+    err instanceof MissingSimulationDataError ||
+    err instanceof InvalidSimulationInputError ||
+    err instanceof ParametersNotInForceError ||
+    err instanceof NoParametersInForceError ||
+    err instanceof IllustrativeParametersRejectedError
+  );
 }
