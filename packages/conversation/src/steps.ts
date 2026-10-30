@@ -48,7 +48,7 @@ const money = (key: string): FieldDef => ({ key, kind: 'money' });
 
 const brlAck = (key: string, label: string) => (v: Values) => T.ack(`${label} ${brl(num(v[key]))}`);
 
-export const STEPS: Record<Exclude<QuestionState, 'CONFIRM' | 'CORRECTION_MENU' | 'HANDOFF_OFFER'>, Step> = {
+export const STEPS: Record<Exclude<QuestionState, 'CONFIRM' | 'CORRECTION_MENU' | 'HANDOFF_OFFER' | 'RESULT' | 'ADJUST_DOWN' | 'ADJUST_TERM'>, Step> = {
   NAME: {
     fields: [{ key: 'name', kind: 'name' }],
     question: () => text(T.askName),
@@ -295,4 +295,18 @@ export function resolveCorrectionTarget(target: string, d: Collected): AnswerSta
   }
   const hit = parseOption(t, correctionOptions());
   return hit ? (hit.id as AnswerState) : null;
+}
+
+// ---- Resultado e ajustes (Fase 6) ----
+
+export type ResultChoice = 'down' | 'term' | 'pdf' | 'finish';
+
+/** Menu depois do resultado; `id` é a ação. "Mudar a entrada" também chega aqui como comando "corrigir". */
+export function resultOptions(): OptionDef[] {
+  return [
+    { id: 'down', label: 'Mudar o valor da entrada', aliases: ['entrada', 'mudar entrada', 'sinal', 'mais entrada', 'menos entrada', 'outra entrada'] },
+    { id: 'term', label: 'Mudar o prazo', aliases: ['prazo', 'anos', 'meses', 'tempo', 'mais prazo', 'menos prazo'] },
+    { id: 'pdf', label: 'Receber o PDF da simulação', aliases: ['pdf', 'receber pdf', 'documento', 'arquivo', 'me manda'] },
+    { id: 'finish', label: 'Está ótimo, pode seguir', aliases: ['ok', 'tudo certo', 'esta otimo', 'pode seguir', 'obrigado', 'obrigada', 'valeu', 'perfeito', 'beleza', 'nada', 'so isso', 'era isso'] },
+  ];
 }

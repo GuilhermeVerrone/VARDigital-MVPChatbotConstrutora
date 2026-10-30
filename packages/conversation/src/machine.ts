@@ -1,18 +1,34 @@
 import { interpretReply, type FieldDef, type FieldValue, type InterpretDeps, type Interpretation } from '@mvp/llm';
+import { parseOption } from '@mvp/parsers';
 import {
-  correctionOptions, fieldsFor, isAnswerState, resolveCorrectionTarget, STEPS, summaryLines, type AnswerState,
+  correctionOptions, fieldsFor, isAnswerState, resolveCorrectionTarget, resultOptions, STEPS, summaryLines,
+  type AnswerState, type ResultChoice,
 } from './steps';
-import { T } from './templates';
+import { brl, T } from './templates';
 import type { Collected, Effect, FlowEnv, QuestionState, Reply, Snapshot, StateName, StepResult } from './types';
 
 export const MAX_FAILURES = 3;
+const TERMINAL = new Set<StateName>(['DONE', 'HANDOFF', 'OPTED_OUT', 'LGPD_PENDING', 'SIMULATING']);
 const MAX_HISTORY = 60;
 
 export function initialSnapshot(): Snapshot {
-  return { state: 'NAME', data: {}, returnTo: null, failures: 0, resumeTo: null, lastInboundId: null, outbox: [], history: [] };
+  return {
+    state: 'NAME', data: {}, returnTo: null, failures: 0, resumeTo: null, lastInboundId: null, adjust: {}, simulationId: null, outbox: [], history: [],
+  };
 }
 
 const text = (t: string): Reply => ({ text: t });
+const num = (v: FieldValue | null | undefined): number => v as number;
+
+/** Texto curto de uma resposta (histórico e log). */
+export function replyPreview(r: Reply): string {
+  if ('text' in r) return r.text;
+  if ('pdf' in r) return '[PDF da simulação]';
+  return [r.list.title, ...r.list.options.map((o, i) => `${i + 1}. ${o}`)].join(' | ');
+}
+
+const RESULT_FAMILY = new Set<StateName>(['RESULT', 'ADJUST_DOWN', 'ADJUST_TERM']);
+const isResultState = (s: StateName): boolean => RESULT_FAMILY.has(s);
 
 /** Junta um texto de abertura à pergunta, numa mensagem só quando a pergunta é texto. */
 function withLead(lead: string | null, question: Reply): Reply[] {
@@ -32,6 +48,14 @@ export function questionFor(state: StateName, snap: Snapshot, env: FlowEnv): Rep
       return [text(T.handoffOffer)];
     case 'DONE':
       return [text(T.doneAgain)];
+    case 'SIMULATING':
+      return [text(T.stillCalculating)];
+    case 'RESULT':
+      return [{ list: { ...T.resultMenu, options: resultOptions().map((o) => o.label) } }];
+    case 'ADJUST_DOWN':
+      return [text(T.askAdjustDown(snap.adjust?.downPayment ?? snap.data.downPayment ?? 0))];
+    case 'ADJUST_TERM':
+      return [text(T.askAdjustTerm)];
     default:
       return isAnswerState(state) ? [STEPS[state].question(env, snap.data)] : [];
   }
@@ -42,12 +66,15 @@ function fieldsOf(state: QuestionState, env: FlowEnv): readonly FieldDef[] {
     case 'CONFIRM': return [{ key: 'confirmed', kind: 'boolean' }];
     case 'HANDOFF_OFFER': return [{ key: 'wantsHuman', kind: 'boolean' }];
     case 'CORRECTION_MENU': return [{ key: 'item', kind: 'option', options: correctionOptions() }];
+    case 'RESULT': return [{ key: 'item', kind: 'option', options: resultOptions() }];
+    case 'ADJUST_DOWN': return [{ key: 'downPayment', kind: 'money' }];
+    case 'ADJUST_TERM': return [{ key: 'termMonths', kind: 'months' }];
     default: return fieldsFor(state, env);
   }
 }
 
 const questionText = (state: QuestionState, snap: Snapshot, env: FlowEnv): string =>
-  questionFor(state, snap, env).map((r) => ('text' in r ? r.text : r.list.title)).join(' ');
+  questionFor(state, snap, env).map((r) => ('list' in r ? r.list.title : replyPreview(r))).join(' ');
 
 /** Lê a resposta do lead para a etapa atual: comando → filtro → parser → LLM (fallback). */
 export async function interpretStep(
@@ -57,7 +84,7 @@ export async function interpretStep(
   deps: InterpretDeps,
 ): Promise<Interpretation> {
   // Estados finais não interpretam nada (e não gastam LLM).
-  if (snap.state === 'DONE' || snap.state === 'HANDOFF' || snap.state === 'OPTED_OUT' || snap.state === 'LGPD_PENDING') {
+  if (TERMINAL.has(snap.state)) {
     return { kind: 'off_topic' };
   }
   const state = snap.state as QuestionState;
@@ -121,7 +148,7 @@ export interface TurnMeta {
 }
 
 function record(snap: Snapshot, meta: TurnMeta, replies: Reply[]): Snapshot {
-  const bot = replies.map((r) => ({ role: 'bot' as const, text: 'text' in r ? r.text : [r.list.title, ...r.list.options.map((o, i) => `${i + 1}. ${o}`)].join(' | '), at: meta.at }));
+  const bot = replies.map((r) => ({ role: 'bot' as const, text: replyPreview(r), at: meta.at }));
   const lead = meta.input ? [{ role: 'lead' as const, text: meta.input, at: meta.at }] : [];
   return { ...snap, lastInboundId: meta.messageId, outbox: replies, history: [...snap.history, ...lead, ...bot].slice(-MAX_HISTORY) };
 }
@@ -129,7 +156,7 @@ function record(snap: Snapshot, meta: TurnMeta, replies: Reply[]): Snapshot {
 /** Mensagem sem texto (áudio, imagem…): não avança, não conta como erro. */
 export function handleNonText(snap: Snapshot, env: FlowEnv, meta: TurnMeta): StepResult {
   const state = snap.state;
-  const replies = isAnswerState(state) || state === 'CONFIRM' || state === 'CORRECTION_MENU' || state === 'HANDOFF_OFFER'
+  const replies = isAnswerState(state) || state === 'CONFIRM' || state === 'CORRECTION_MENU' || state === 'HANDOFF_OFFER' || isResultState(state)
     ? withLead(T.textOnly, questionFor(state, snap, env)[0]!)
     : state === 'DONE' ? [text(T.doneAgain)] : [];
   return { snapshot: record(snap, meta, replies), replies, effects: [] };
@@ -153,6 +180,7 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
 
   // Estados finais
   if (state === 'DONE') return done(snap, [text(T.doneAgain)]);
+  if (state === 'SIMULATING') return done(snap, [text(T.stillCalculating)]);
   if (state === 'HANDOFF' || state === 'OPTED_OUT' || state === 'LGPD_PENDING') return done(snap, []);
 
   const qs = state as QuestionState;
@@ -184,12 +212,17 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
         case 'exit':
           return done(snap, [text(T.paused)]);
         case 'back': {
+          // No resultado "voltar" volta ao menu; para mexer nos dados, o caminho é "corrigir".
+          if (isResultState(qs)) return done({ ...snap, state: 'RESULT', failures: 0 }, withLead(T.backToMenu, questionFor('RESULT', snap, env)[0]!));
           const prev = backTarget(snap, env);
           if (!prev) return done(snap, again(T.noPrevious));
           const next: Snapshot = { ...snap, state: prev, failures: 0, returnTo: returnPointOf(snap) };
           return done(next, again(T.wentBack, next));
         }
         case 'correct': {
+          // "mudar a entrada"/"mudar o prazo" no resultado são os ajustes, não a correção dos dados.
+          const pick = isResultState(qs) && it.target ? parseOption(it.target, resultOptions()) : null;
+          if (pick && (pick.id === 'down' || pick.id === 'term')) return chooseResult(pick.id);
           const target = it.target ? resolveCorrectionTarget(it.target, snap.data) : null;
           if (!target) {
             const next: Snapshot = { ...snap, state: 'CORRECTION_MENU', failures: 0, resumeTo: returnPointOf(snap) };
@@ -207,11 +240,27 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
       return fail(T.offTopic);
     case 'reask': {
       if (it.reason === 'suspected_injection') return fail(T.injection);
-      const hint = isAnswerState(qs) ? STEPS[qs].hint : 'Responda *sim* ou *não*.';
-      return fail(T.reask(hint));
+      return fail(T.reask(hintFor(qs)));
     }
     case 'answer':
       return answer(it.fields);
+  }
+
+  function chooseResult(choice: ResultChoice): StepResult {
+    switch (choice) {
+      case 'down':
+      case 'term': {
+        const next: Snapshot = { ...snap, state: choice === 'down' ? 'ADJUST_DOWN' : 'ADJUST_TERM', failures: 0 };
+        return done(next, questionFor(next.state, next, env));
+      }
+      case 'pdf': {
+        const menu = questionFor('RESULT', snap, env);
+        if (!snap.simulationId) return done({ ...snap, state: 'RESULT', failures: 0 }, menu);
+        return done({ ...snap, state: 'RESULT', failures: 0 }, [{ pdf: { simulationId: snap.simulationId, caption: T.pdfCaption } }, ...menu]);
+      }
+      case 'finish':
+        return done({ ...snap, state: 'DONE', failures: 0 }, [text(T.finished)]);
+    }
   }
 
   function jumpTo(target: AnswerState, returnTo: QuestionState | null): StepResult {
@@ -223,10 +272,22 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
   function answer(values: Record<string, FieldValue | null>): StepResult {
     if (qs === 'CONFIRM') {
       if (values.confirmed === true) {
-        return done({ ...snap, state: 'DONE', failures: 0 }, [text(T.done)], [{ type: 'collected' }]);
+        // Dados confirmados: grava o perfil e vai calcular. Uma conversa nova começa sem ajustes.
+        return done({ ...snap, state: 'SIMULATING', failures: 0, adjust: {}, simulationId: null }, [text(T.calculating)], [{ type: 'collected' }]);
       }
       const next: Snapshot = { ...snap, state: 'CORRECTION_MENU', failures: 0, resumeTo: 'CONFIRM' };
       return done(next, questionFor('CORRECTION_MENU', next, env));
+    }
+    if (qs === 'RESULT') return chooseResult(String(values.item) as ResultChoice);
+    if (qs === 'ADJUST_DOWN') {
+      const adjust = { ...snap.adjust, downPayment: num(values.downPayment) };
+      return done({ ...snap, state: 'SIMULATING', failures: 0, adjust }, [text(T.recalculating)]);
+    }
+    if (qs === 'ADJUST_TERM') {
+      const months = num(values.termMonths);
+      if (months < 12 || months > 600) return fail(T.termRange);
+      const adjust = { ...snap.adjust, termMonths: months };
+      return done({ ...snap, state: 'SIMULATING', failures: 0, adjust }, [text(T.recalculating)]);
     }
     if (qs === 'HANDOFF_OFFER') {
       if (values.wantsHuman === true) return handoff(snap);
@@ -256,10 +317,24 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
   return done(snap, again(null));
 }
 
+/** Dica de formato para quando a resposta não é entendida. */
+function hintFor(state: QuestionState): string {
+  if (isAnswerState(state)) return STEPS[state].hint;
+  switch (state) {
+    case 'CORRECTION_MENU': return 'Responda com o número ou o nome do item.';
+    case 'RESULT': return 'Responda com o número de uma das opções.';
+    case 'ADJUST_DOWN': return 'Informe o valor. Ex.: 80 mil ou 80000.';
+    case 'ADJUST_TERM': return 'Diga o prazo com a unidade. Ex.: 30 anos ou 360 meses.';
+    default: return 'Responda *sim* ou *não*.';
+  }
+}
+
 /** Para onde voltar depois de uma correção/voltar: a etapa atual (ou a confirmação). */
 function returnPointOf(snap: Snapshot): QuestionState | null {
   const s = snap.state;
   if (s === 'CORRECTION_MENU' || s === 'HANDOFF_OFFER') return snap.resumeTo;
+  // Corrigir um dado depois do resultado leva de volta à confirmação, que recalcula.
+  if (isResultState(s)) return 'CONFIRM';
   return isAnswerState(s) || s === 'CONFIRM' ? (s as QuestionState) : null;
 }
 
@@ -271,3 +346,35 @@ function backTarget(snap: Snapshot, env: FlowEnv): AnswerState | null {
   return path && path.length > 0 ? path[path.length - 1]! : null;
 }
 
+
+
+export interface ResultArgs {
+  simulationId: string;
+  /** Mensagens do resultado já formatadas (resultado e aviso legal). */
+  messages: string[];
+  /** true quando o corretor já tinha recebido uma simulação deste lead (esta é uma atualização). */
+  brokerAlreadyNotified: boolean;
+  at: string;
+}
+
+/** Resultado apresentado: o lead vê o menu de ajustes e o PDF. Fecha a fase SIMULATING. */
+export function enterResult(snap: Snapshot, env: FlowEnv, a: ResultArgs): StepResult {
+  const next: Snapshot = { ...snap, state: 'RESULT', failures: 0, simulationId: a.simulationId };
+  const replies: Reply[] = [
+    ...a.messages.map(text),
+    text(a.brokerAlreadyNotified ? T.brokerUpdated : T.brokerInformed),
+    ...questionFor('RESULT', next, env),
+  ];
+  return { snapshot: record(next, { messageId: snap.lastInboundId ?? '', input: null, at: a.at }, replies), replies, effects: [] };
+}
+
+/** Não foi possível simular (sem unidade, dados incompletos): oferece o corretor, sem dado nenhum inventado. */
+export function failSimulation(snap: Snapshot, at: string): StepResult {
+  const replies = [text(T.simulationFailed)];
+  const next: Snapshot = { ...snap, state: 'HANDOFF', failures: 0 };
+  return {
+    snapshot: record(next, { messageId: snap.lastInboundId ?? '', input: null, at }, replies),
+    replies,
+    effects: [{ type: 'handoff' }, { type: 'lead_status', status: 'HANDOFF' }, { type: 'audit', action: 'handoff_requested' }],
+  };
+}

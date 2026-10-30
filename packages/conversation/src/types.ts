@@ -6,10 +6,15 @@ export type QuestionState =
   | 'INCOME' | 'INCOME_TYPE' | 'BIRTH' | 'DEBTS'
   | 'CO_ASK' | 'CO_INCOME' | 'CO_INCOME_TYPE' | 'CO_BIRTH' | 'CO_DEBTS'
   | 'DOWN' | 'FGTS_ASK' | 'FGTS_BALANCE' | 'FGTS_MONTHS'
-  | 'OWNS' | 'FIRST' | 'CONFIRM' | 'CORRECTION_MENU' | 'HANDOFF_OFFER';
+  | 'OWNS' | 'FIRST' | 'CONFIRM' | 'CORRECTION_MENU' | 'HANDOFF_OFFER'
+  /** Depois do resultado: menu e ajustes de entrada/prazo (Fase 6). */
+  | 'RESULT' | 'ADJUST_DOWN' | 'ADJUST_TERM';
 
-/** Estados finais: o bot não pergunta mais nada. */
-export type TerminalState = 'DONE' | 'HANDOFF' | 'OPTED_OUT' | 'LGPD_PENDING';
+/**
+ * Estados em que o bot não pergunta nada. SIMULATING é transitório: o orquestrador calcula e
+ * apresenta o resultado (e retoma de onde parou se o processo cair no meio).
+ */
+export type TerminalState = 'DONE' | 'HANDOFF' | 'OPTED_OUT' | 'LGPD_PENDING' | 'SIMULATING';
 export type StateName = QuestionState | TerminalState;
 
 export interface Collected {
@@ -36,7 +41,19 @@ export interface Collected {
   firstFinancing?: boolean;
 }
 
-export type Reply = { text: string } | { list: { title: string; options: string[]; footer?: string } };
+export type Reply =
+  | { text: string }
+  | { list: { title: string; options: string[]; footer?: string } }
+  /** PDF da simulação, gerado no envio a partir da simulação gravada. */
+  | { pdf: { simulationId: string; caption: string } };
+
+/** Ajustes pedidos pelo lead depois do primeiro resultado (RF-27). Valem só para a simulação. */
+export interface Adjust {
+  /** Entrada em dinheiro que o lead diz conseguir (fora o FGTS). */
+  downPayment?: number;
+  /** Prazo desejado, em meses. */
+  termMonths?: number;
+}
 
 export interface HistoryEntry {
   role: 'lead' | 'bot';
@@ -56,6 +73,10 @@ export interface Snapshot {
   resumeTo: QuestionState | null;
   /** Último id de mensagem do canal já aplicado (idempotência da reentrega). */
   lastInboundId: string | null;
+  /** Ajustes de entrada/prazo em vigor (vazio até o lead pedir). */
+  adjust: Adjust;
+  /** Última simulação apresentada ao lead (id em `simulations`). */
+  simulationId: string | null;
   /** Respostas decididas e ainda não confirmadas como enviadas. */
   outbox: Reply[];
   history: HistoryEntry[];

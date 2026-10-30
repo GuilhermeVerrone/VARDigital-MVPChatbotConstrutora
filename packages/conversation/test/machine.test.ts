@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyInterpretation, initialSnapshot, interpretStep, type Effect, type FlowEnv, type Reply, type Snapshot } from '../src';
+import { applyInterpretation, enterResult, failSimulation, handleNonText, initialSnapshot, interpretStep, replyPreview, type Effect, type FlowEnv, type Reply, type Snapshot } from '../src';
 
 const env: FlowEnv = {
   today: '2026-10-29',
@@ -25,7 +25,7 @@ class Chat {
     return this;
   }
   get text() {
-    return this.last.map((r) => ('text' in r ? r.text : `${r.list.title} ${r.list.options.join('|')}`)).join('\n');
+    return this.last.map((r) => ('list' in r ? `${r.list.title} ${r.list.options.join('|')}` : replyPreview(r))).join('\n');
   }
 }
 
@@ -66,7 +66,8 @@ describe('fluxo de coleta', () => {
     expect(c.snap.state).toBe('CONFIRM');
     expect(c.text).toContain('Renda mensal: R$ 7.000');
     await c.say('sim');
-    expect(c.snap.state).toBe('DONE');
+    expect(c.snap.state).toBe('SIMULATING'); // o orquestrador calcula e apresenta (Fase 6)
+    expect(c.text).toContain('fazendo as contas');
     expect(c.effects).toContainEqual({ type: 'collected' });
     expect(c.snap.data).toMatchObject({ name: 'Maria da Silva', income: 7000, incomeType: 'CLT', birthDate: '1990-03-05', debts: 800, hasCoApplicant: false, downPayment: 40000, ownsProperty: false, firstFinancing: true });
   });
@@ -226,5 +227,148 @@ describe('fluxo de coleta', () => {
     expect(c.snap.history.map((h) => h.role)).toEqual(['lead', 'bot']);
     expect(c.snap.lastInboundId).toBe('m1');
     expect(c.snap.outbox.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Resultado e ajustes (Fase 6)
+// ---------------------------------------------------------------------------
+
+const FULL_FLOW = ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil', 'sim', '15 mil', '3 anos', 'não', 'sim'];
+
+/** Conversa até o resultado: o orquestrador calcula; aqui a fase SIMULATING é fechada à mão. */
+async function atResult(): Promise<Chat> {
+  const c = new Chat();
+  for (const m of FULL_FLOW) await c.say(m);
+  expect(c.snap.state).toBe('CONFIRM');
+  await c.say('sim');
+  expect(c.snap.state).toBe('SIMULATING');
+  const r = enterResult(c.snap, env, { simulationId: 'sim-1', messages: ['Resultado...', 'Aviso legal...'], brokerAlreadyNotified: false, at: '2026-10-29T12:00:01Z' });
+  c.snap = r.snapshot;
+  c.last = r.replies;
+  return c;
+}
+
+describe('resultado e ajustes', () => {
+  it('depois do resultado, mostra o aviso legal, avisa do corretor e oferece o menu', async () => {
+    const c = await atResult();
+    expect(c.snap).toMatchObject({ state: 'RESULT', simulationId: 'sim-1' });
+    expect(c.text).toContain('Resultado...');
+    expect(c.text).toContain('Aviso legal...');
+    expect(c.text).toContain('passei o seu resumo para um corretor');
+    expect(c.text).toContain('Mudar o valor da entrada|Mudar o prazo|Receber o PDF da simulação|Está ótimo');
+    expect(c.snap.outbox).toEqual(c.last);
+    expect(c.snap.history.at(-1)!.role).toBe('bot');
+  });
+
+  it('em uma atualização, diz que o resumo do corretor foi atualizado', async () => {
+    const c = await atResult();
+    const r = enterResult(c.snap, env, { simulationId: 'sim-2', messages: ['x'], brokerAlreadyNotified: true, at: '2026-10-29T12:00:02Z' });
+    expect(JSON.stringify(r.replies)).toContain('Atualizei o resumo do corretor');
+  });
+
+  it('ajustar a entrada pede o valor, guarda o ajuste e volta a calcular', async () => {
+    const c = await atResult();
+    await c.say('1');
+    expect(c.snap.state).toBe('ADJUST_DOWN');
+    expect(c.text).toContain('Hoje considerei R$ 40.000');
+    await c.say('80 mil');
+    expect(c.snap).toMatchObject({ state: 'SIMULATING', adjust: { downPayment: 80000 } });
+    expect(c.text).toContain('refazer as contas');
+    expect(c.snap.data.downPayment).toBe(40000); // o dado informado não muda; só o cenário
+    expect(c.effects.filter((e) => e.type === 'collected')).toHaveLength(1); // o perfil não é regravado
+  });
+
+  it('ajustar o prazo aceita anos e meses, recusa valores absurdos e acumula com a entrada', async () => {
+    const c = await atResult();
+    await c.say('prazo');
+    expect(c.snap.state).toBe('ADJUST_TERM');
+    await c.say('2 anos');
+    expect(c.snap.state).toBe('SIMULATING'); // 24 meses: o motor ajusta ao mínimo da linha e avisa
+    c.snap = { ...c.snap, state: 'ADJUST_TERM', adjust: {} };
+    await c.say('90 anos');
+    expect(c.snap.state).toBe('ADJUST_TERM');
+    expect(c.text).toContain('entre 1 e 50 anos');
+    await c.say('200 anos');
+    expect(c.snap.state).toBe('ADJUST_TERM');
+    expect(c.text).toContain('Diga o prazo com a unidade');
+    await c.say('30 anos');
+    expect(c.snap).toMatchObject({ state: 'SIMULATING', adjust: { termMonths: 360 } });
+    c.snap = enterResult(c.snap, env, { simulationId: 'sim-2', messages: ['x'], brokerAlreadyNotified: true, at: 'a' }).snapshot;
+    await c.say('mudar a entrada');
+    expect(c.snap.state).toBe('ADJUST_DOWN'); // "mudar a entrada" não vira correção do dado
+    await c.say('50000');
+    expect(c.snap.adjust).toEqual({ termMonths: 360, downPayment: 50000 });
+  });
+
+  it('"receber o PDF" envia o PDF da última simulação e mantém o menu', async () => {
+    const c = await atResult();
+    await c.say('3');
+    expect(c.snap.state).toBe('RESULT');
+    expect(c.last[0]).toEqual({ pdf: { simulationId: 'sim-1', caption: expect.stringContaining('PDF da sua simulação') } });
+    expect(c.last).toHaveLength(2);
+    expect(c.snap.history.at(-2)!.text).toBe('[PDF da simulação]');
+  });
+
+  it('"está ótimo" encerra com a mensagem final; depois o bot só lembra que a equipe cuida', async () => {
+    const c = await atResult();
+    await c.say('4');
+    expect(c.snap.state).toBe('DONE');
+    expect(c.text).toContain('já está com o corretor');
+    await c.say('oi?');
+    expect(c.text).toContain('já está com a nossa equipe');
+  });
+
+  it('"voltar" no resultado volta ao menu; ajuste interrompido também', async () => {
+    const c = await atResult();
+    await c.say('voltar');
+    expect(c.snap.state).toBe('RESULT');
+    await c.say('1');
+    await c.say('voltar');
+    expect(c.snap.state).toBe('RESULT');
+    expect(c.text).toContain('voltando às opções');
+  });
+
+  it('"corrigir renda" depois do resultado refaz o dado e volta à confirmação, que recalcula do zero', async () => {
+    const c = await atResult();
+    await c.say('2'); await c.say('20 anos'); // há um ajuste em vigor
+    c.snap = enterResult(c.snap, env, { simulationId: 'sim-2', messages: ['x'], brokerAlreadyNotified: true, at: 'a' }).snapshot;
+    await c.say('corrigir renda');
+    expect(c.snap.state).toBe('INCOME');
+    await c.say('9 mil');
+    expect(c.snap.state).toBe('CONFIRM');
+    expect(c.snap.data.income).toBe(9000);
+    await c.say('sim');
+    expect(c.snap).toMatchObject({ state: 'SIMULATING', adjust: {}, simulationId: null });
+    expect(c.effects.filter((e) => e.type === 'collected')).toHaveLength(2);
+  });
+
+  it('falar com corretor funciona no resultado; resposta não entendida 3 vezes oferece o corretor e recusar volta ao menu', async () => {
+    const c = await atResult();
+    await c.say('blablabla'); await c.say('hmm'); await c.say('xyz');
+    expect(c.snap.state).toBe('HANDOFF_OFFER');
+    await c.say('não');
+    expect(c.snap.state).toBe('RESULT');
+    await c.say('quero falar com um corretor');
+    expect(c.snap.state).toBe('HANDOFF');
+    expect(c.effects).toContainEqual({ type: 'handoff' });
+  });
+
+  it('mensagem de áudio no resultado repete o menu sem avançar; durante o cálculo pede um instante', async () => {
+    const c = await atResult();
+    const r = handleNonText(c.snap, env, { messageId: 'a1', input: null, at: 'x' });
+    expect(r.snapshot.state).toBe('RESULT');
+    expect(JSON.stringify(r.replies)).toContain('mensagens de texto');
+    const sim = { ...c.snap, state: 'SIMULATING' as const };
+    const it = await interpretStep('oi', sim, env, {});
+    expect(JSON.stringify(applyInterpretation(sim, it, env, { messageId: 'a2', input: 'oi', at: 'x' }).replies)).toContain('ainda estou fazendo as contas');
+  });
+
+  it('falha ao simular oferece o corretor e silencia o bot', async () => {
+    const c = await atResult();
+    const r = failSimulation({ ...c.snap, state: 'SIMULATING' }, 'x');
+    expect(r.snapshot.state).toBe('HANDOFF');
+    expect(r.effects).toContainEqual({ type: 'handoff' });
+    expect(JSON.stringify(r.replies)).toContain('Não consegui fechar a simulação');
   });
 });
