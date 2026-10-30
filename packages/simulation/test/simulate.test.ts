@@ -415,3 +415,37 @@ describe('pureza, validação e vigência', () => {
     expect(simulate(baseInput({ referenceDate: REF_DATE }), illustrativeParameters).parametersVersion).toBe('2026-10-ILUSTRATIVO-v1');
   });
 });
+
+describe('parcela desejada (teto com folga pequena)', () => {
+  // Imóvel 250.000, renda 10.000 (capacidade 3.000). Fator SAC da 1ª parcela = 1/360 + 1%.
+  it('cabe na parcela desejada: financia só o que ela comporta e pede mais entrada', () => {
+    const r = simulate(baseInput({ availableDownPayment: 100000, desiredInstallment: 2000 }), simpleParams());
+    expect(r.verdict).toBe('VIAVEL');
+    expect(fin(r).firstInstallment!.total).toBeLessThanOrEqual(2000);
+    expect(fin(r).firstInstallment!.total).toBeGreaterThan(1999);
+    expect(fin(r).requiredDownPayment).toBeCloseTo(93478.27, 1);
+    expect(codes(r.alerts)).not.toContain('DESIRED_INSTALLMENT_EXCEEDED_SLIGHTLY');
+  });
+
+  it('só cabe um pouco acima (até 15%): usa o teto ampliado e avisa', () => {
+    const r = simulate(baseInput({ availableDownPayment: 72000, desiredInstallment: 2000 }), simpleParams());
+    expect(r.verdict).toBe('VIAVEL');
+    expect(fin(r).firstInstallment!.total).toBeGreaterThan(2000);
+    expect(fin(r).firstInstallment!.total).toBeLessThanOrEqual(2300);
+    expect(r.alerts.find((a) => a.code === 'DESIRED_INSTALLMENT_EXCEEDED_SLIGHTLY')?.value).toBe(fin(r).firstInstallment!.total);
+  });
+
+  it('não cabe nem com a folga: usa toda a entrada disponível (menor parcela possível) e avisa', () => {
+    const r = simulate(baseInput({ availableDownPayment: 60000, desiredInstallment: 2000 }), simpleParams());
+    expect(r.verdict).toBe('VIAVEL');
+    expect(fin(r).downPaymentUsed).toBe(60000);
+    expect(fin(r).financedAmount).toBe(190000);
+    expect(fin(r).firstInstallment!.total).toBe(2427.78);
+    expect(r.alerts.find((a) => a.code === 'DESIRED_INSTALLMENT_UNREACHABLE')?.value).toBe(2427.78);
+  });
+
+  it('parcela desejada acima da capacidade ou ausente não muda o resultado', () => {
+    const base = simulate(baseInput(), simpleParams());
+    expect(simulate(baseInput({ desiredInstallment: 5000 }), simpleParams())).toEqual(base);
+  });
+});

@@ -45,6 +45,8 @@ export const simulationInputSchema = z
     firstFinancing: z.boolean(),
     system: z.enum(['SAC', 'PRICE']).optional(),
     desiredTermMonths: z.number().int().positive().optional(),
+    /** Parcela mensal que o lead quer pagar (teto, com folga pequena). Vazio = sem preferência. */
+    desiredInstallment: z.number().finite().positive().optional(),
     /**
      * false (padrão): financia o máximo possível e mostra a entrada mínima.
      * true: usa toda a entrada disponível e financia só o restante.

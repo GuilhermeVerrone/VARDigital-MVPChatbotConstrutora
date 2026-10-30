@@ -6,6 +6,9 @@ import { floorCents, roundCents } from './money';
 import { parseSimulationParameters, type CreditLine, type SimulationParameters } from './params';
 import { toRates, type Rates } from './rates';
 
+/** Quanto acima da parcela desejada ainda conta como "pouca diferença" (ex.: 2.000 → até 2.300). */
+export const DESIRED_INSTALLMENT_TOLERANCE_RATIO = 0.15;
+
 export type Verdict = 'VIAVEL' | 'VIAVEL_COM_AJUSTES' | 'INVIAVEL';
 
 export type IneligibilityReason =
@@ -49,7 +52,11 @@ export type AlertCode =
   | 'DOWN_PAYMENT_INSUFFICIENT'
   | 'FGTS_MIN_TIME_NOT_MET'
   | 'FGTS_NOT_ELIGIBLE'
-  | 'CONSTRUCTION_INSTALLMENT_ABOVE_CAPACITY';
+  | 'CONSTRUCTION_INSTALLMENT_ABOVE_CAPACITY'
+  /** Coube um pouco acima da parcela desejada (value = 1ª parcela). */
+  | 'DESIRED_INSTALLMENT_EXCEEDED_SLIGHTLY'
+  /** Não coube na parcela desejada: esta é a menor possível (value = 1ª parcela). */
+  | 'DESIRED_INSTALLMENT_UNREACHABLE';
 
 export interface Alert {
   code: AlertCode;
@@ -259,7 +266,7 @@ function evaluateLine(line: CreditLine, input: SimulationInput, params: Simulati
     capacity.maxInstallment > 0 && !ageBlocked
       ? maxPrincipalForInstallment(system, capacity.maxInstallment, rates.monthly, term.months, charges)
       : 0;
-  const maxFinanceable = Math.min(maxByLtv, maxByInstallment);
+  let maxFinanceable = Math.min(maxByLtv, maxByInstallment);
   const limitingFactor = maxByLtv <= maxByInstallment ? 'LTV' : 'INSTALLMENT';
 
   // Fontes que não são financiamento, nesta ordem: subsídio, FGTS, dinheiro (spec §4.3).
@@ -268,9 +275,32 @@ function evaluateLine(line: CreditLine, input: SimulationInput, params: Simulati
   const subsidy = Math.min(subsidyAvailable, input.propertyValue);
   const fgtsUsed = Math.min(fgtsAvailable, input.propertyValue - subsidy);
   const toFinanceOrPay = roundCents(input.propertyValue - subsidy - fgtsUsed);
+  // Parcela desejada: um teto. Tenta nela, depois um pouco acima; se nem assim couber, usa toda a
+  // entrada disponível para chegar na menor parcela possível.
+  let desired: 'WITHIN' | 'SLIGHTLY_ABOVE' | 'UNREACHABLE' | null = null;
+  let useFullDownPayment = input.useFullDownPayment;
+  const wish = input.desiredInstallment;
+  if (wish !== undefined && wish < capacity.maxInstallment && !ageBlocked && capacity.maxInstallment > 0) {
+    const attempts = [
+      [wish, 'WITHIN'],
+      [wish * (1 + DESIRED_INSTALLMENT_TOLERANCE_RATIO), 'SLIGHTLY_ABOVE'],
+    ] as const;
+    for (const [cap, outcome] of attempts) {
+      const principal = Math.min(maxByLtv, maxPrincipalForInstallment(system, Math.min(cap, capacity.maxInstallment), rates.monthly, term.months, charges));
+      if (toFinanceOrPay - principal <= input.availableDownPayment) {
+        maxFinanceable = principal;
+        desired = outcome;
+        break;
+      }
+    }
+    if (!desired) {
+      desired = 'UNREACHABLE';
+      useFullDownPayment = true;
+    }
+  }
   const requiredDownPayment = roundCents(Math.max(0, toFinanceOrPay - maxFinanceable));
   const shortfall = roundCents(Math.max(0, requiredDownPayment - input.availableDownPayment));
-  const downPaymentUsed = input.useFullDownPayment
+  const downPaymentUsed = useFullDownPayment
     ? roundCents(Math.max(requiredDownPayment, Math.min(input.availableDownPayment, toFinanceOrPay)))
     : requiredDownPayment;
   const financedAmount = roundCents(toFinanceOrPay - downPaymentUsed);
@@ -316,6 +346,8 @@ function evaluateLine(line: CreditLine, input: SimulationInput, params: Simulati
     lastInstallment = schedule.installments[schedule.installments.length - 1]!;
     totals = schedule.totals;
     incomeCommitment = (firstInstallment.total + monthlyDebts) / familyIncome;
+    if (desired === 'SLIGHTLY_ABOVE') alerts.push({ code: 'DESIRED_INSTALLMENT_EXCEEDED_SLIGHTLY', value: firstInstallment.total });
+    if (desired === 'UNREACHABLE') alerts.push({ code: 'DESIRED_INSTALLMENT_UNREACHABLE', value: firstInstallment.total });
     if (incomeCommitment >= line.maxIncomeCommitment * params.highCommitmentAlertRatio) {
       alerts.push({ code: 'HIGH_INCOME_COMMITMENT', value: incomeCommitment });
     }
