@@ -82,6 +82,12 @@ importers:
         specifier: workspace:*
         version: link:../parsers
 
+  packages/crm:
+    dependencies:
+      '@mvp/db':
+        specifier: workspace:*
+        version: link:../db
+
   packages/db:
     dependencies:
       '@mvp/simulation':
