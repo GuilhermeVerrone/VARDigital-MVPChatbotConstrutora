@@ -137,7 +137,7 @@ describe('retomada e idempotência', () => {
     for (const m of ['Maria da Silva', 'sim', 'pular', '1']) await a.say(m);
     const b = bot(); // processo novo, mesmo banco
     const out = await b.say('7 mil');
-    expect(out.join('\n')).toContain('Anotado: renda de R$ 7.000/mês');
+    expect(out.join('\n')).toContain('Certo, renda de R$ 7.000/mês');
     expect(out.join('\n')).toContain('tipo de renda');
   });
 
