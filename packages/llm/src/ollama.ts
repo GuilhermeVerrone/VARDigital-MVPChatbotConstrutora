@@ -15,7 +15,7 @@ export function loadLlmConfig(env: Record<string, string | undefined>): OllamaOp
   const num = (v: string | undefined, d: number) => (v && Number.isFinite(Number(v)) ? Number(v) : d);
   return {
     baseUrl: env.OLLAMA_URL ?? 'http://localhost:11434',
-    model: env.LLM_MODEL ?? 'qwen2.5:3b',
+    model: env.LLM_MODEL ?? 'llama3.2:3b',
     timeoutMs: num(env.LLM_TIMEOUT_MS, 20_000),
     disableThinking: env.LLM_DISABLE_THINKING === 'true',
   };

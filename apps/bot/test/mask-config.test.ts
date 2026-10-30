@@ -20,6 +20,7 @@ describe('maskJid', () => {
 describe('loadConfig', () => {
   const base = {
     WA_AKG_WEBHOOK_SECRET: 'x'.repeat(32),
+    CHAT_HASH_SECRET: 'y'.repeat(32),
     BOT_DATABASE_URL: 'postgres://u:p@localhost:5432/bot',
     WA_AKG_API_KEY: 'key',
     ALLOWED_PHONES: '13981264295',

@@ -35,9 +35,18 @@ importers:
       '@mvp/channel':
         specifier: workspace:*
         version: link:../../packages/channel
+      '@mvp/conversation':
+        specifier: workspace:*
+        version: link:../../packages/conversation
       '@mvp/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@mvp/llm':
+        specifier: workspace:*
+        version: link:../../packages/llm
+      '@mvp/parsers':
+        specifier: workspace:*
+        version: link:../../packages/parsers
       fastify:
         specifier: ^5.12.7
         version: 5.12.7
@@ -63,6 +72,15 @@ importers:
       zod:
         specifier: ^4.6.7
         version: 4.6.7
+
+  packages/conversation:
+    dependencies:
+      '@mvp/llm':
+        specifier: workspace:*
+        version: link:../llm
+      '@mvp/parsers':
+        specifier: workspace:*
+        version: link:../parsers
 
   packages/db:
     dependencies:

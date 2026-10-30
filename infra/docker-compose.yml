@@ -111,6 +111,10 @@ services:
       WA_AKG_SESSION_ID: ${WA_AKG_SESSION_ID:-piloto}
       ALLOWED_PHONES: ${ALLOWED_PHONES:?defina em infra/.env (telefones permitidos, separados por vírgula)}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      CHAT_HASH_SECRET: ${CHAT_HASH_SECRET:?defina em infra/.env}
+      LLM_MODEL: ${LLM_MODEL:-llama3.2:3b}
+      LLM_ENABLED: ${LLM_ENABLED:-true}
+      PROMPTS_DIR: /app/prompts
       WEBHOOK_CAPTURE_DIR: ${WEBHOOK_CAPTURE_DIR:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"

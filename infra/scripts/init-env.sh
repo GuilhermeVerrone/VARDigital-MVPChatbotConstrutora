@@ -21,6 +21,7 @@ set_var() {
 
 set_var WA_AKG_MYSQL_ROOT_PASSWORD "$(rand)"
 set_var WA_AKG_AUTH_SECRET "$(rand 32)"
+set_var CHAT_HASH_SECRET "$(rand 32)"
 set_var WA_AKG_SWAGGER_PASSWORD "$(rand 12)"
 set_var WA_AKG_ADMIN_PASSWORD "$(rand 12)"
 set_var BOT_DB_PASSWORD "$(rand)"

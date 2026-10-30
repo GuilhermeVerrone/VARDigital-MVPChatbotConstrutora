@@ -26,6 +26,17 @@ const envSchema = z.object({
   INBOX_POLL_MS: z.coerce.number().int().positive().default(1000),
   INBOX_LOCK_MS: z.coerce.number().int().positive().default(120_000),
   INBOX_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(5),
+  // Conversa (Fase 5). O segredo gera o hash da conversa antes do consentimento (nenhum telefone legível).
+  CHAT_HASH_SECRET: z.string().min(16, 'CHAT_HASH_SECRET precisa de pelo menos 16 caracteres'),
+  CONVERSATION_RETENTION_DAYS: z.coerce.number().positive().default(7),
+  CONVERSATION_RESUME_GAP_MS: z.coerce.number().int().positive().default(6 * 60 * 60 * 1000),
+  TYPING_MAX_MS: z.coerce.number().int().min(0).default(2_000),
+  // LLM local (fallback dos parsers). LLM_ENABLED=false → só parsers.
+  LLM_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+  LLM_MODEL: z.string().default('llama3.2:3b'),
+  LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
+  LLM_PROMPT_VERSION: z.coerce.number().int().positive().default(2),
+  PROMPTS_DIR: z.preprocess(emptyToUndefined, z.string().optional()),
   OLLAMA_BASE_URL: z.string().url().default('http://localhost:11434'),
   // Somente desenvolvimento: grava payloads brutos recebidos (contêm dados pessoais).
   WEBHOOK_CAPTURE_DIR: z.preprocess(emptyToUndefined, z.string().optional()),

@@ -1,10 +1,12 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { createPhoneAllowlist, restrictChannel, WaAkgAdapter } from '@mvp/channel';
 import { createDb } from '@mvp/db';
+import { loadPrompt, OllamaClient } from '@mvp/llm';
 import { loadConfig } from './config';
 import { createDependencyChecks } from './deps';
-import { createEchoHandler } from './handlers/echo';
 import { createDbInbox } from './inbox';
+import { createOrchestrator } from './orchestrator';
 import { buildServer } from './server';
 import { createWorker } from './worker';
 
@@ -27,6 +29,27 @@ const channel = restrictChannel(
   allowlist,
 );
 
+const promptsDir =
+  config.PROMPTS_DIR ?? [resolve('prompts'), resolve('../../prompts')].find((d) => existsSync(join(d, `extraction.v${config.LLM_PROMPT_VERSION}.md`)));
+if (config.LLM_ENABLED && !promptsDir) throw new Error('prompts/ não encontrado: defina PROMPTS_DIR ou LLM_ENABLED=false');
+
+const handle = createOrchestrator({
+  db,
+  channel,
+  hashSecret: config.CHAT_HASH_SECRET,
+  maxTypingMs: config.TYPING_MAX_MS,
+  resumeGapMs: config.CONVERSATION_RESUME_GAP_MS,
+  retentionMs: config.CONVERSATION_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+  ...(config.LLM_ENABLED && promptsDir
+    ? {
+        llm: {
+          llm: new OllamaClient({ baseUrl: config.OLLAMA_BASE_URL, model: config.LLM_MODEL, timeoutMs: config.LLM_TIMEOUT_MS }),
+          prompt: loadPrompt(promptsDir, 'extraction', config.LLM_PROMPT_VERSION),
+        },
+      }
+    : {}),
+});
+
 const app = buildServer({
   webhookSecret: config.WA_AKG_WEBHOOK_SECRET,
   inbox,
@@ -46,8 +69,7 @@ const app = buildServer({
 
 const worker = createWorker({
   inbox,
-  // Fase 5 troca o eco pelo orquestrador.
-  handle: createEchoHandler(channel),
+  handle,
   log: app.log,
   maxAttempts: config.INBOX_MAX_ATTEMPTS,
   pollMs: config.INBOX_POLL_MS,

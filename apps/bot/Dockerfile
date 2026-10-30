@@ -5,6 +5,9 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/bot/package.json apps/bot/
 COPY packages/channel/package.json packages/channel/
+COPY packages/conversation/package.json packages/conversation/
+COPY packages/llm/package.json packages/llm/
+COPY packages/parsers/package.json packages/parsers/
 COPY packages/db/package.json packages/db/
 COPY packages/simulation/package.json packages/simulation/
 # Sem scripts: o postinstall do @mvp/db (prisma generate) precisa do schema, que ainda não foi copiado.
@@ -19,6 +22,7 @@ FROM node:24-alpine
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /repo/apps/bot/dist ./dist
+COPY --from=build /repo/prompts ./prompts
 USER node
 EXPOSE 3100
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \

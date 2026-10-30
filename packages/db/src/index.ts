@@ -39,3 +39,18 @@ export {
   type RunSimulationArgs,
   type SimulationChoices,
 } from './simulation-service';
+export {
+  deleteSession,
+  listActiveTypologies,
+  loadChat,
+  saveSession,
+  saveTurn,
+  startConversation,
+  type ChatIdentity,
+  type LoadedChat,
+  type ProfileInput,
+  type SaveTurnArgs,
+  type SessionState,
+  type StartConversationArgs,
+  type TurnWrites,
+} from './conversations';

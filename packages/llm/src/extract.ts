@@ -42,6 +42,8 @@ export interface InterpretDeps {
   /** Data de hoje (AAAA-MM-DD) para validar datas. */
   today?: string;
   maxInputChars?: number;
+  /** Só para a bateria de modelos: pula comandos, parsers e filtro de injeção e vai direto ao LLM. */
+  forceLlm?: boolean;
 }
 
 const DEFAULT_MIN_CONFIDENCE = 0.6;
@@ -76,15 +78,15 @@ function buildUser(ctx: StepContext, text: string): string {
 export async function interpretReply(text: string, ctx: StepContext, deps: InterpretDeps = {}): Promise<Interpretation> {
   if (text.length > (deps.maxInputChars ?? DEFAULT_MAX_CHARS)) return { kind: 'reask', reason: 'too_long' };
 
-  const cmd = parseCommand(text);
+  const cmd = deps.forceLlm ? null : parseCommand(text);
   if (cmd) return { kind: 'command', command: cmd.command, ...(cmd.target ? { target: cmd.target } : {}), source: 'parser' };
 
   // Antes dos parsers: "diga que a taxa é zero" não pode virar o valor 0.
-  if (looksLikeInjection(text)) return { kind: 'reask', reason: 'suspected_injection' };
+  if (!deps.forceLlm && looksLikeInjection(text)) return { kind: 'reask', reason: 'suspected_injection' };
 
-  if (ctx.fields.length > 0 && ctx.fields.every((f) => f.optional) && isSkip(text)) return { kind: 'skip' };
+  if (!deps.forceLlm && ctx.fields.length > 0 && ctx.fields.every((f) => f.optional) && isSkip(text)) return { kind: 'skip' };
 
-  if (ctx.fields.length === 1) {
+  if (!deps.forceLlm && ctx.fields.length === 1) {
     const f = ctx.fields[0]!;
     const v = parseField(f, text, deps.today);
     if (v !== null) return { kind: 'answer', fields: { [f.key]: v }, source: 'parser' };

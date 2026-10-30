@@ -29,6 +29,7 @@ describe('migrations', () => {
       '_prisma_migrations',
       'audit_logs', // LogAuditoria
       'brokers', // Corretor
+      'chat_sessions', // estado pré-consentimento (só hash)
       'consents', // Consentimento
       'conversations', // Conversa
       'credit_lines', // LinhaCredito

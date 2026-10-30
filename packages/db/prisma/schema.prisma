@@ -412,3 +412,17 @@ model ProcessedMessage {
   @@index([chatKey, receivedAt])
   @@map("processed_messages")
 }
+
+/// Estado de quem ainda NÃO consentiu (RF-02, RF-12): guarda só um hash (HMAC) da conversa e o
+/// estado, nenhum dado pessoal legível. Some quando o lead aceita (vira Lead + Consent) ou recusa.
+/// OPTED_OUT mantém o silêncio de quem pediu para parar antes de consentir.
+model ChatSession {
+  chatHash  String   @id @map("chat_hash")
+  /// CONSENT_ASKED | OPTED_OUT
+  state     String
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("chat_sessions")
+}

@@ -8,6 +8,9 @@ const PATTERNS: RegExp[] = [
   /\b(revele|mostre|repita|exiba|imprima)\b.{0,30}\b(instruc\w+|prompt|regras|configurac\w+)\b/,
   /<\/?(system|assistant|instructions?)>|\[\/?(inst|system)\]|###\s*(system|instruction)/,
   /\b(responda|diga|escreva|afirme|garanta|confirme)\b.{0,30}\b(taxa|juros)\b.{0,20}\b(zero|0|0%|sem juros)\b/,
+  /(^|\n)\s*(system|sistema|assistant|assistente|developer)\s*:/,
+  /\b(preencha|defina|coloque|registre|marque|ponha)\b.{0,40}\b(com|como|para|em)\b.{0,15}\d/,
+  /\b(intent|confidence|fields)\s*[=:]/,
   /\b(aprov\w+)\b.{0,25}\b(garantid\w+|automatic\w+|independente)\b/,
 ];
 
