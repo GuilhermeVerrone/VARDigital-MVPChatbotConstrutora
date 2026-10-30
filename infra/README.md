@@ -74,6 +74,8 @@ docker compose exec bot-db psql -U bot -d bot -c "select external_id, status, at
 
 Estados da fila: `PENDING` (aguardando ou em espera de nova tentativa), `PROCESSING`, `DONE` (conteúdo apagado), `DEAD` (esgotou as tentativas; inspecionar `last_error`). `ALLOWED_PHONES` (obrigatória) limita quem o bot atende e para quem envia. Variáveis: `INBOX_POLL_MS`, `INBOX_LOCK_MS`, `INBOX_MAX_ATTEMPTS` (defaults no `apps/bot/src/config.ts`).
 
+Entregas de saída (CRM e aviso ao corretor, Fase 6): tabela `delivery_jobs` (`PENDING`, `PROCESSING`, `DONE`, `DEAD`; inspecionar `attempts` e `last_error`), com as variáveis `DELIVERY_POLL_MS`, `DELIVERY_LOCK_MS`, `DELIVERY_MAX_ATTEMPTS`. O container do bot não aplica migrations: depois de atualizar, rode `./scripts/db-setup.sh`. Os telefones dos corretores precisam estar em `ALLOWED_PHONES`.
+
 ## Comandos úteis
 
 ```bash
