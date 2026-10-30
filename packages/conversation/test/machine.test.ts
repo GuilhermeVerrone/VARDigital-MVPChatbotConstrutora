@@ -41,7 +41,7 @@ describe('fluxo de coleta', () => {
     const c = new Chat();
     await c.say('meu nome é Maria da Silva');
     expect(c.snap.state).toBe('PHONE_CONFIRM');
-    expect(c.text).toContain('Anotado: prazer, Maria');
+    expect(c.text).toContain('Certo, prazer, Maria');
     expect(c.text).toContain('(13) 98126-4295');
     await c.say('sim');
     expect(c.snap.data.phone).toBe('5513981264295');
@@ -49,7 +49,7 @@ describe('fluxo de coleta', () => {
     await c.say('dois quartos');
     expect(c.snap.data.typology).toBe('DOIS_Q');
     await c.say('uns 7 mil');
-    expect(c.text).toContain('Anotado: renda de R$ 7.000/mês');
+    expect(c.text).toContain('Certo, renda de R$ 7.000/mês');
     await c.say('clt');
     await c.say('05/03/1990');
     await c.say('800');
@@ -153,6 +153,18 @@ describe('fluxo de coleta', () => {
     await c.say('8 mil');
     expect(c.snap.data.income).toBe(8000);
     expect(c.snap.state).toBe('DEBTS');
+  });
+
+  it('"não" seco nas perguntas de parcelas e de entrada vale zero, sem acionar o interpretador', async () => {
+    for (const [state, field] of [['DEBTS', 'debts'], ['CO_DEBTS', 'coDebts'], ['DOWN', 'downPayment']] as const) {
+      const c = new Chat();
+      c.snap = { ...initialSnapshot(), state };
+      for (const answer of ['não', 'Não.', 'nao']) {
+        const it = await interpretStep(answer, c.snap, env, {});
+        const r = applyInterpretation(c.snap, it, env, { messageId: `x-${answer}`, input: answer, at: '2026-10-29T12:00:00Z' });
+        expect(r.snapshot.data[field]).toBe(0);
+      }
+    }
   });
 
   it('corrigir algo que ainda não foi perguntado não pula etapas', async () => {

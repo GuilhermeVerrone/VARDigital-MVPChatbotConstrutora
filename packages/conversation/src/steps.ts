@@ -1,4 +1,4 @@
-import { INCOME_TYPE_OPTIONS, parseOption, parsePhone, type OptionDef } from '@mvp/parsers';
+import { INCOME_TYPE_OPTIONS, parseOption, parsePhone, parseYesNo, type OptionDef } from '@mvp/parsers';
 import type { FieldDef, FieldValue } from '@mvp/llm';
 import { brl, formatDateBr, formatPhone, T } from './templates';
 import type { Collected, FlowEnv, QuestionState, Reply, StateName } from './types';
@@ -45,6 +45,9 @@ function birthValidator(key: string) {
 }
 
 const money = (key: string): FieldDef => ({ key, kind: 'money' });
+
+/** Um "não" seco, em pergunta de valor, vale zero ("tem parcelas?" → "não"). */
+const noMeansZero = (key: string) => (t: string): Values | null => (parseYesNo(t) === false ? { [key]: 0 } : null);
 
 const brlAck = (key: string, label: string) => (v: Values) => T.ack(`${label} ${brl(num(v[key]))}`);
 
@@ -129,6 +132,7 @@ export const STEPS: Record<Exclude<QuestionState, 'CONFIRM' | 'CORRECTION_MENU' 
   DEBTS: {
     fields: [money('debts')],
     question: () => text(T.askDebts),
+    preParse: noMeansZero('debts'),
     hint: 'Informe o valor somado das parcelas por mês (ex.: 800) ou *não* se não tiver.',
     apply: (d, v) => ({ ...d, debts: num(v.debts) }),
     ack: (v) => T.ack(num(v.debts) === 0 ? 'sem parcelas mensais' : `parcelas de ${brl(num(v.debts))}/mês`),
@@ -173,6 +177,7 @@ export const STEPS: Record<Exclude<QuestionState, 'CONFIRM' | 'CORRECTION_MENU' 
   CO_DEBTS: {
     fields: [money('coDebts')],
     question: () => text(T.askCoDebts),
+    preParse: noMeansZero('coDebts'),
     hint: 'Informe o valor somado das parcelas por mês (ex.: 500) ou *não*.',
     apply: (d, v) => ({ ...d, coDebts: num(v.coDebts) }),
     next: () => 'DOWN',
@@ -181,6 +186,7 @@ export const STEPS: Record<Exclude<QuestionState, 'CONFIRM' | 'CORRECTION_MENU' 
   DOWN: {
     fields: [money('downPayment')],
     question: () => text(T.askDown),
+    preParse: noMeansZero('downPayment'),
     hint: 'Informe o valor. Ex.: 40 mil, 40000 ou 0 se não tiver agora.',
     apply: (d, v) => ({ ...d, downPayment: num(v.downPayment) }),
     ack: (v) => T.ack(num(v.downPayment) === 0 ? 'sem entrada por enquanto' : `entrada de ${brl(num(v.downPayment))}`),
