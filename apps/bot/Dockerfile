@@ -6,8 +6,10 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/bot/package.json apps/bot/
 COPY packages/channel/package.json packages/channel/
 COPY packages/conversation/package.json packages/conversation/
+COPY packages/crm/package.json packages/crm/
 COPY packages/llm/package.json packages/llm/
 COPY packages/parsers/package.json packages/parsers/
+COPY packages/presentation/package.json packages/presentation/
 COPY packages/db/package.json packages/db/
 COPY packages/simulation/package.json packages/simulation/
 # Sem scripts: o postinstall do @mvp/db (prisma generate) precisa do schema, que ainda não foi copiado.

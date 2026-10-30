@@ -31,6 +31,12 @@ const envSchema = z.object({
   CONVERSATION_RETENTION_DAYS: z.coerce.number().positive().default(7),
   CONVERSATION_RESUME_GAP_MS: z.coerce.number().int().positive().default(6 * 60 * 60 * 1000),
   TYPING_MAX_MS: z.coerce.number().int().min(0).default(2_000),
+  // Entregas ao CRM e ao corretor (Fase 6): fila de saída com nova tentativa e espera crescente.
+  DELIVERY_POLL_MS: z.coerce.number().int().positive().default(1000),
+  DELIVERY_LOCK_MS: z.coerce.number().int().positive().default(120_000),
+  DELIVERY_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(8),
+  // Prazo para o corretor ligar, citado no "próximo passo" do dossiê (o SLA configurável é pós-MVP).
+  BROKER_CONTACT_MINUTES: z.coerce.number().int().positive().default(5),
   // LLM local (fallback dos parsers). LLM_ENABLED=false → só parsers.
   LLM_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   LLM_MODEL: z.string().default('qwen2.5:7b'),

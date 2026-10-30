@@ -38,6 +38,9 @@ importers:
       '@mvp/conversation':
         specifier: workspace:*
         version: link:../../packages/conversation
+      '@mvp/crm':
+        specifier: workspace:*
+        version: link:../../packages/crm
       '@mvp/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -47,6 +50,9 @@ importers:
       '@mvp/parsers':
         specifier: workspace:*
         version: link:../../packages/parsers
+      '@mvp/presentation':
+        specifier: workspace:*
+        version: link:../../packages/presentation
       fastify:
         specifier: ^5.12.7
         version: 5.12.7

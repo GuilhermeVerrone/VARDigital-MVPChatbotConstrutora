@@ -11,9 +11,11 @@
   "dependencies": {
     "@mvp/channel": "workspace:*",
     "@mvp/conversation": "workspace:*",
+    "@mvp/crm": "workspace:*",
     "@mvp/db": "workspace:*",
     "@mvp/llm": "workspace:*",
     "@mvp/parsers": "workspace:*",
+    "@mvp/presentation": "workspace:*",
     "fastify": "^5.12.7",
     "pg": "^8.23.1",
     "zod": "^4.6.7"
