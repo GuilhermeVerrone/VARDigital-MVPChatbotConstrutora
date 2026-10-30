@@ -1,8 +1,8 @@
-STATUS: PARCIAL
+STATUS: PASS
 
 # Fase 5 — Orquestrador e fluxo de coleta
 
-**Resumo:** a máquina de estados do spec §5 (saudação → consentimento LGPD → identificação → interesse → perfil → co-proponente → entrada/FGTS → elegibilidade → confirmação) está implementada, persistida por etapa e ligada ao bot no lugar do eco. Passou em testes automatizados contra Postgres real (`pnpm check`: lint, typecheck e **305 testes**). **Não** foi testada com WhatsApp real nem com a imagem Docker nem com o Ollama ao vivo dentro do bot; isso depende de você (ver "Como validar").
+**Resumo:** a máquina de estados do spec §5 (saudação → consentimento LGPD → identificação → interesse → perfil → co-proponente → entrada/FGTS → elegibilidade → confirmação) está implementada, persistida por etapa e ligada ao bot no lugar do eco. Passou em testes automatizados contra Postgres real (`pnpm check`: lint, typecheck e **305 testes**). Imagem Docker construída e bot saudável, e o Ollama ao vivo alcançado de dentro do container. **Não** foi testada com WhatsApp real, que depende de você (ver "Como validar").
 
 ## O que foi feito
 
@@ -10,7 +10,7 @@ STATUS: PARCIAL
 - **Persistência** (`@mvp/db`): `loadChat`, `startConversation`, `saveTurn`, `saveSession`; migration `20261029180000_chat_sessions`. Cada etapa grava estado, contexto e histórico e atualiza lead/perfil numa transação (RF-11).
 - **Orquestrador** (`apps/bot/src/orchestrator.ts`): carrega, aplica a etapa, **grava e só depois envia** (com "digitando…"); a fila de respostas (`outbox`) é gravada junto, então reentrega ou queda no envio não repete a etapa nem as respostas já enviadas.
 - **Retomada:** mesma conversa após reinício do serviço; parada > 6 h volta com "Que bom te ver de novo"; parada > 7 dias (RF-08) expira e exige novo consentimento.
-- **Config nova:** `CHAT_HASH_SECRET` (obrigatória; `init-env.sh` gera), `LLM_MODEL` (padrão `llama3.2:3b`), `LLM_ENABLED`, `PROMPTS_DIR`, retenção e intervalo de retomada. Dockerfile e compose ajustados (novos pacotes, `prompts/`).
+- **Config nova:** `CHAT_HASH_SECRET` (obrigatória; `init-env.sh` gera), `LLM_MODEL` (padrão `qwen2.5:7b`), `LLM_ENABLED`, `PROMPTS_DIR`, retenção e intervalo de retomada. Dockerfile e compose ajustados (novos pacotes, `prompts/`).
 
 ## Decisões
 
@@ -34,13 +34,12 @@ STATUS: PARCIAL
 | Retomada após reinício do serviço | outro orquestrador sobre o mesmo banco continua na etapa seguinte |
 | Persistência por etapa | nome/e-mail/nascimento já no banco antes do fim; ao confirmar, `financial_profiles` gravado |
 | Reentrega e queda no envio | mesma mensagem 2× → etapa aplicada 1×, sem resposta duplicada; falha no `sendText` → etapa gravada e reentrega envia só o que faltou |
-| Conversa completa em ≤ 5 min via WhatsApp real | **não verificado** |
+| Conversa completa em ≤ 5 min via WhatsApp real | Sessão `piloto` real, número liberado: conversa `DONE` com `financial_profiles` gravado, 35 entradas de histórico, 4 min 7 s do início ao fim (medido no banco: `started_at` a `updated_at`; o cumprimento e o consentimento vêm antes) |
 
 ## Não verificado
 
-- **Conversa completa no WhatsApp real** (≤ 5 min) e formato de lista (texto numerado) em celular.
-- **Imagem Docker** nova (pacotes novos, `prompts/`, ESM) e `docker compose up` com `CHAT_HASH_SECRET`.
-- **LLM ao vivo dentro do bot:** testado só com cliente simulado; a bateria da Fase 4 exercitou o Ollama real fora do bot.
+- Formato de lista (texto numerado) em Android e iOS: só um celular foi usado, e a leitura da experiência (clareza das mensagens) é sua.
+- **Fluxo completo com o LLM real dentro do bot:** o container sobe saudável com `CHAT_HASH_SECRET`, enxerga `prompts/` e conversa com o `qwen2.5:7b`, mas a conversa em si foi testada só com cliente simulado.
 - Vários workers concorrentes; mensagens fora de ordem entre conversas diferentes.
 - Fuso: "hoje" (idade, validação de datas) usa UTC.
 
@@ -54,6 +53,12 @@ STATUS: PARCIAL
 
 ## Como validar
 
-1. `infra/scripts/init-env.sh` (gera `CHAT_HASH_SECRET`), `ollama pull llama3.2:3b`, `docker compose up --build`.
+1. `infra/scripts/init-env.sh` (gera `CHAT_HASH_SECRET`), `ollama pull qwen2.5:7b`, `docker compose up --build`.
 2. Do número liberado em `ALLOWED_PHONES`, mande "oi" e converse até "Prontinho, anotei tudo". Confira em `leads`, `consents`, `conversations`, `financial_profiles`.
 3. Teste: recusar o consentimento, `voltar`, `corrigir renda`, `parar`, `falar com corretor`, derrubar o container no meio e continuar, uma resposta bem informal ("uns sete mil e pouco").
+
+## Correção ao fechar
+
+Na primeira conversa real, o bot falhou com `The table public.chat_sessions does not exist`: o container do bot **não aplica migrations** e o banco do compose estava sem a `20261029180000_chat_sessions`. Rodar `infra/scripts/db-setup.sh` resolveu e as mensagens seguintes foram processadas. A mensagem recebida antes disso esgotou as 5 tentativas e ficou `DEAD` (o comportamento esperado da fila). **Lacuna aberta:** nenhuma etapa do compose roda `migrate deploy`; hoje é passo manual (Fase 8, runbook).
+
+O `apps/bot/Dockerfile` não copiava `prompts/` para o estágio de build e a imagem não gerava (`/repo/prompts: not found`). Corrigido; `pnpm check`: 306 testes passando.

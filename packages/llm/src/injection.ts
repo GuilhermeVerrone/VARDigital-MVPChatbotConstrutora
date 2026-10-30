@@ -11,6 +11,8 @@ const PATTERNS: RegExp[] = [
   /(^|\n)\s*(system|sistema|assistant|assistente|developer)\s*:/,
   /\b(preencha|defina|coloque|registre|marque|ponha)\b.{0,40}\b(com|como|para|em)\b.{0,15}\d/,
   /\b(intent|confidence|fields)\s*[=:]/,
+  /\b(dobro|triplo|metade|multipl\w+)\b.{0,30}\bque eu (disser|falar|informar|digitar)\b/,
+  /\b(entao|logo|portanto)\b.{0,10}\b(registre|anote|preencha|coloque)\b/,
   /\b(aprov\w+)\b.{0,25}\b(garantid\w+|automatic\w+|independente)\b/,
 ];
 

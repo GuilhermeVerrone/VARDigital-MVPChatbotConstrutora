@@ -24,11 +24,11 @@ docker compose up -d --build # build do WA-AKG leva ~5 min e ocupa ~1,8 GB de im
 
 | Ambiente | Como rodar | `infra/.env` |
 |---|---|---|
-| macOS (dev) | `OLLAMA_HOST=0.0.0.0:11434 ollama serve` no host (Docker no Mac não usa a GPU/Metal) e `ollama pull llama3.2:3b` | `COMPOSE_PROFILES=` e `OLLAMA_BASE_URL=http://host.docker.internal:11434` |
-| Linux/servidor | container do compose | `COMPOSE_PROFILES=ollama` e `OLLAMA_BASE_URL=http://ollama:11434`; depois `docker compose exec ollama ollama pull llama3.2:3b` |
+| macOS (dev) | `OLLAMA_HOST=0.0.0.0:11434 ollama serve` no host (Docker no Mac não usa a GPU/Metal) e `ollama pull qwen2.5:7b` | `COMPOSE_PROFILES=` e `OLLAMA_BASE_URL=http://host.docker.internal:11434` |
+| Linux/servidor | container do compose | `COMPOSE_PROFILES=ollama` e `OLLAMA_BASE_URL=http://ollama:11434`; depois `docker compose exec ollama ollama pull qwen2.5:7b` |
 
 `init-env.sh` já escolhe pelo sistema operacional. A imagem `ollama/ollama` tem ~2,8 GB comprimida (arm64).
-O modelo de produção será escolhido na Fase 4; `llama3.2:3b` é só para o teste de fumaça.
+O modelo escolhido na Fase 4 é `qwen2.5:7b` (ver `docs/fases/fase-4.md`).
 
 ### Conectar o número de teste (manual)
 

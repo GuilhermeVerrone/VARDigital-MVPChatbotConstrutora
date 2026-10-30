@@ -8,7 +8,7 @@ INFRA="$(cd "$(dirname "$0")/.." && pwd)"
 [ -f "${INFRA}/.env" ] && { set -a; source "${INFRA}/.env"; set +a; }
 
 URL="${1:-http://localhost:11434}"
-MODEL="${2:-${OLLAMA_SMOKE_MODEL:-llama3.2:3b}}"
+MODEL="${2:-${OLLAMA_SMOKE_MODEL:-qwen2.5:7b}}"
 
 echo "== ${URL}/api/version"
 curl -sSf "${URL}/api/version"; echo

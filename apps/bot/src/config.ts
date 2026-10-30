@@ -33,7 +33,7 @@ const envSchema = z.object({
   TYPING_MAX_MS: z.coerce.number().int().min(0).default(2_000),
   // LLM local (fallback dos parsers). LLM_ENABLED=false → só parsers.
   LLM_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
-  LLM_MODEL: z.string().default('llama3.2:3b'),
+  LLM_MODEL: z.string().default('qwen2.5:7b'),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
   LLM_PROMPT_VERSION: z.coerce.number().int().positive().default(2),
   PROMPTS_DIR: z.preprocess(emptyToUndefined, z.string().optional()),

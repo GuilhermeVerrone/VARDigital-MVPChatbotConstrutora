@@ -14,6 +14,7 @@ COPY packages/simulation/package.json packages/simulation/
 RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY tsconfig.base.json ./
 COPY packages packages
+COPY prompts prompts
 COPY apps/bot apps/bot
 RUN pnpm --filter @mvp/db generate && pnpm --filter @mvp/bot build
 
