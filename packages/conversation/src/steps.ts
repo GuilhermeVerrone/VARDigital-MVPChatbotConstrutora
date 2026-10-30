@@ -1,4 +1,4 @@
-import { INCOME_TYPE_OPTIONS, parseOption, parsePhone, parseYesNo, type OptionDef } from '@mvp/parsers';
+import { INCOME_TYPE_OPTIONS, normalize, parseOption, parsePhone, parseYesNo, type OptionDef } from '@mvp/parsers';
 import type { FieldDef, FieldValue } from '@mvp/llm';
 import { brl, formatDateBr, formatPhone, T } from './templates';
 import type { Collected, FlowEnv, QuestionState, Reply, StateName } from './types';
@@ -190,8 +190,19 @@ export const STEPS: Record<Exclude<QuestionState, 'CONFIRM' | 'CORRECTION_MENU' 
     hint: 'Informe o valor. Ex.: 40 mil, 40000 ou 0 se não tiver agora.',
     apply: (d, v) => ({ ...d, downPayment: num(v.downPayment) }),
     ack: (v) => T.ack(num(v.downPayment) === 0 ? 'sem entrada por enquanto' : `entrada de ${brl(num(v.downPayment))}`),
-    next: () => 'FGTS_ASK',
+    next: () => 'INSTALLMENT',
     answered: (d) => d.downPayment !== undefined,
+  },
+  INSTALLMENT: {
+    fields: [money('desiredInstallment')],
+    question: () => text(T.askInstallment),
+    // "não sei" e parecidos: sem preferência (a simulação usa a capacidade máxima).
+    preParse: (t) => (/\b(nao sei|tanto faz|qualquer|sem preferencia|nao tenho (ideia|preferencia)|o que (der|couber)|nao)\b/.test(normalize(t)) ? { desiredInstallment: 0 } : null),
+    hint: 'Informe o valor da parcela mensal que você gostaria de pagar. Ex.: 2000. Se não tiver um valor em mente, responda *não sei*.',
+    apply: (d, v) => ({ ...d, desiredInstallment: num(v.desiredInstallment) }),
+    ack: (v) => T.ack(num(v.desiredInstallment) === 0 ? 'sem parcela definida' : `parcela de até ${brl(num(v.desiredInstallment))}/mês`),
+    next: () => 'FGTS_ASK',
+    answered: (d) => d.desiredInstallment !== undefined,
   },
   FGTS_ASK: {
     fields: [{ key: 'hasFgts', kind: 'boolean' }],
@@ -265,6 +276,7 @@ export function summaryLines(d: Collected, env: FlowEnv): string[] {
     add('Parcelas dela', d.coDebts !== undefined ? brl(d.coDebts) : undefined);
   }
   add('Entrada', d.downPayment !== undefined ? brl(d.downPayment) : undefined);
+  add('Parcela desejada', d.desiredInstallment === undefined ? undefined : d.desiredInstallment === 0 ? 'sem preferência' : `até ${brl(d.desiredInstallment)}/mês`);
   if (d.hasFgts) add('FGTS', `${brl(d.fgtsBalance ?? 0)}, ${d.fgtsMonths ?? 0} meses de carteira`);
   add('Possui imóvel', d.ownsProperty === undefined ? undefined : d.ownsProperty ? 'sim' : 'não');
   add('Primeiro financiamento', d.firstFinancing === undefined ? undefined : d.firstFinancing ? 'sim' : 'não');
@@ -285,6 +297,7 @@ export function correctionOptions(): OptionDef[] {
     o('DEBTS', 'Parcelas mensais', ['parcelas', 'dividas', 'divida', 'financiamentos', 'emprestimos']),
     o('CO_ASK', 'Quem compra junto', ['junto', 'co proponente', 'conjuge', 'esposa', 'esposo', 'marido', 'companheiro', 'outra pessoa']),
     o('DOWN', 'Entrada', ['entrada', 'sinal']),
+    o('INSTALLMENT', 'Parcela desejada', ['parcela desejada', 'valor da parcela', 'quanto pagar', 'parcela mensal']),
     o('FGTS_ASK', 'FGTS', ['fgts']),
     o('OWNS', 'Possui imóvel', ['imovel', 'imovel proprio', 'casa propria']),
     o('FIRST', 'Primeiro financiamento', ['primeiro imovel', 'primeiro financiamento']),

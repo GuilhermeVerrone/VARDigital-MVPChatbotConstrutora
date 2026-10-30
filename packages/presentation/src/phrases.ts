@@ -46,6 +46,9 @@ export const ALERT_FOR_LEAD: Record<AlertCode, AlertText> = {
   DOWN_PAYMENT_INSUFFICIENT: () => null,
   FGTS_MIN_TIME_NOT_MET: (a) => `Seu FGTS ainda não tem os ${v(a)} meses de carteira exigidos para entrar na entrada.`,
   FGTS_NOT_ELIGIBLE: () => 'Pela regra dessa linha, o seu FGTS não pôde entrar na entrada.',
+  DESIRED_INSTALLMENT_EXCEEDED_SLIGHTLY: (a) => `A parcela ficou um pouco acima do que você queria pagar: ${brl(v(a))} no primeiro mês.`,
+  DESIRED_INSTALLMENT_UNREACHABLE: (a) =>
+    `Não consegui chegar na parcela que você queria. Usando toda a sua entrada, a menor parcela possível é de ${brl(v(a))} no primeiro mês.`,
   CONSTRUCTION_INSTALLMENT_ABOVE_CAPACITY: (a) =>
     `As parcelas da entrada durante a obra (${brl(v(a))} por mês) são maiores que a parcela que cabe no seu orçamento hoje.`,
 };
@@ -55,6 +58,8 @@ export const ALERT_FOR_BROKER: Record<AlertCode, AlertText> = {
   INFORMAL_INCOME: () => 'Renda informal: pedir comprovação',
   AGE_LIMITS_TERM: (a) => `Idade limita o prazo a ${v(a)} meses`,
   TERM_ADJUSTED: (a) => `Prazo pedido ajustado para ${v(a)} meses`,
+  DESIRED_INSTALLMENT_EXCEEDED_SLIGHTLY: (a) => `Coube um pouco acima da parcela desejada (1ª parcela ${brl(v(a))})`,
+  DESIRED_INSTALLMENT_UNREACHABLE: (a) => `Parcela desejada inalcançável; menor possível com toda a entrada: ${brl(v(a))}`,
   SYSTEM_ADJUSTED: () => 'Sistema de amortização ajustado à linha',
   HIGH_INCOME_COMMITMENT: (a) => `Comprometimento de renda em ${pct(v(a))} (próximo do limite)`,
   CO_APPLICANT_RECOMMENDED: () => 'Co-proponente recomendado para fechar a parcela',

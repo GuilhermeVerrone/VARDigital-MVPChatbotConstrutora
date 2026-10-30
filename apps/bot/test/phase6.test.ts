@@ -89,7 +89,7 @@ function setup(opts: { crm?: CrmAdapter; llm?: LlmClient; workerOverrides?: Part
 }
 
 /** Respostas da coleta; `down` é a entrada disponível (70 mil → viável; 40 mil → falta entrada). */
-const answers = (down: string) => ['Maria da Silva', 'sim', 'maria@gmail.com', '1', '7 mil', 'clt', '05/03/1990', '800', 'não', down, 'sim', '15 mil', '3 anos', 'não', 'sim'];
+const answers = (down: string) => ['Maria da Silva', 'sim', 'maria@gmail.com', '1', '7 mil', 'clt', '05/03/1990', '800', 'não', down, 'não sei', 'sim', '15 mil', '3 anos', 'não', 'sim'];
 
 async function converse(b: ReturnType<typeof setup>, down = '70 mil', o: Parameters<ReturnType<typeof setup>['say']>[1] = {}) {
   await b.say('oi', o);

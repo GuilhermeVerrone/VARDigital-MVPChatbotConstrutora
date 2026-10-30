@@ -39,6 +39,7 @@ export const T = {
   askCoBirth: 'Qual a data de nascimento dela? Ex.: 05/03/1990',
   askCoDebts: 'E ela paga alguma parcela todo mês (financiamento, empréstimo, cartão parcelado)? Se pagar, quanto dá por mês, somando tudo? Se não, é só responder *não*.',
   askDown: 'Quanto você tem disponível para a entrada, sem contar o FGTS? Se nada por enquanto, responda *0*.',
+  askInstallment: 'Qual valor da sua renda você gostaria de destinar para pagar a parcela do financiamento? Se não tiver um valor em mente, responda *não sei*.',
   askFgts: 'Você tem saldo de FGTS para usar? (sim/não)',
   askFgtsBalance: 'Qual o saldo aproximado do seu FGTS?',
   askFgtsMonths: 'Há quanto tempo você trabalha com carteira assinada (FGTS)? Ex.: 3 anos',

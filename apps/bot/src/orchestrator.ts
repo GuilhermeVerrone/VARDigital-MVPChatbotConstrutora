@@ -173,6 +173,7 @@ export function createOrchestrator(opts: OrchestratorOptions) {
           // Ajuste de entrada: o lead diz quanto consegue pôr, então a entrada é usada por inteiro.
           ...(adjust.downPayment !== undefined ? { availableDownPayment: adjust.downPayment, useFullDownPayment: true } : {}),
           ...(adjust.termMonths !== undefined ? { desiredTermMonths: adjust.termMonths } : {}),
+          ...(snap.data.desiredInstallment ? { desiredInstallment: snap.data.desiredInstallment } : {}),
         },
       });
       const view = toView(await loadSimulationBundle(db, simulation.id));

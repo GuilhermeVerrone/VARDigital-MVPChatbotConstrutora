@@ -5,7 +5,7 @@ export type QuestionState =
   | 'NAME' | 'PHONE_CONFIRM' | 'PHONE' | 'EMAIL' | 'INTEREST'
   | 'INCOME' | 'INCOME_TYPE' | 'BIRTH' | 'DEBTS'
   | 'CO_ASK' | 'CO_INCOME' | 'CO_INCOME_TYPE' | 'CO_BIRTH' | 'CO_DEBTS'
-  | 'DOWN' | 'FGTS_ASK' | 'FGTS_BALANCE' | 'FGTS_MONTHS'
+  | 'DOWN' | 'INSTALLMENT' | 'FGTS_ASK' | 'FGTS_BALANCE' | 'FGTS_MONTHS'
   | 'OWNS' | 'FIRST' | 'CONFIRM' | 'CORRECTION_MENU' | 'HANDOFF_OFFER'
   /** Depois do resultado: menu e ajustes de entrada/prazo (Fase 6). */
   | 'RESULT' | 'ADJUST_DOWN' | 'ADJUST_TERM';
@@ -34,6 +34,8 @@ export interface Collected {
   coBirthDate?: string;
   coDebts?: number;
   downPayment?: number;
+  /** Parcela mensal que o lead quer pagar; 0 = sem preferência. */
+  desiredInstallment?: number;
   hasFgts?: boolean;
   fgtsBalance?: number;
   fgtsMonths?: number;

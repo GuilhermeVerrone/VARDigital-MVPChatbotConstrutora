@@ -56,6 +56,11 @@ describe('fluxo de coleta', () => {
     expect(c.snap.state).toBe('CO_ASK');
     await c.say('não');
     await c.say('40 mil');
+    expect(c.snap.state).toBe('INSTALLMENT');
+    expect(c.text).toContain('gostaria de destinar');
+    await c.say('2 mil');
+    expect(c.snap.data.desiredInstallment).toBe(2000);
+    expect(c.text).toContain('parcela de até R$ 2.000/mês');
     expect(c.snap.state).toBe('FGTS_ASK');
     await c.say('sim');
     await c.say('15 mil');
@@ -69,7 +74,7 @@ describe('fluxo de coleta', () => {
     expect(c.snap.state).toBe('SIMULATING'); // o orquestrador calcula e apresenta (Fase 6)
     expect(c.text).toContain('fazendo as contas');
     expect(c.effects).toContainEqual({ type: 'collected' });
-    expect(c.snap.data).toMatchObject({ name: 'Maria da Silva', income: 7000, incomeType: 'CLT', birthDate: '1990-03-05', debts: 800, hasCoApplicant: false, downPayment: 40000, ownsProperty: false, firstFinancing: true });
+    expect(c.snap.data).toMatchObject({ name: 'Maria da Silva', income: 7000, incomeType: 'CLT', birthDate: '1990-03-05', debts: 800, hasCoApplicant: false, downPayment: 40000, desiredInstallment: 2000, ownsProperty: false, firstFinancing: true });
   });
 
   it('com co-proponente pergunta os dados dele', async () => {
@@ -167,6 +172,16 @@ describe('fluxo de coleta', () => {
     }
   });
 
+  it('parcela desejada: "não sei", "não" e "tanto faz" valem sem preferência (0)', async () => {
+    for (const answer of ['não sei', 'não', 'tanto faz']) {
+      const c = new Chat();
+      c.snap = { ...initialSnapshot(), state: 'INSTALLMENT' };
+      await c.say(answer);
+      expect(c.snap.data.desiredInstallment).toBe(0);
+      expect(c.snap.state).toBe('FGTS_ASK');
+    }
+  });
+
   it('corrigir algo que ainda não foi perguntado não pula etapas', async () => {
     const c = new Chat();
     await upToIncome(c);
@@ -178,7 +193,7 @@ describe('fluxo de coleta', () => {
   it('na confirmação, "não" abre o menu e depois volta à confirmação', async () => {
     const c = new Chat();
     await upToIncome(c);
-    for (const a of ['7 mil', 'clt', '05/03/1990', '0', 'não', '10 mil', 'não', 'não', 'sim']) await c.say(a);
+    for (const a of ['7 mil', 'clt', '05/03/1990', '0', 'não', '10 mil', 'não sei', 'não', 'não', 'sim']) await c.say(a);
     expect(c.snap.state).toBe('CONFIRM');
     await c.say('não');
     expect(c.snap.state).toBe('CORRECTION_MENU');
@@ -192,7 +207,7 @@ describe('fluxo de coleta', () => {
   it('corrigir "tem co-proponente" para sim pede só o que falta e volta à confirmação', async () => {
     const c = new Chat();
     await upToIncome(c);
-    for (const a of ['7 mil', 'clt', '05/03/1990', '0', 'não', '10 mil', 'não', 'não', 'sim']) await c.say(a);
+    for (const a of ['7 mil', 'clt', '05/03/1990', '0', 'não', '10 mil', 'não sei', 'não', 'não', 'sim']) await c.say(a);
     await c.say('corrigir quem compra junto');
     expect(c.snap.state).toBe('CO_ASK');
     await c.say('sim');
@@ -246,7 +261,7 @@ describe('fluxo de coleta', () => {
 // Resultado e ajustes (Fase 6)
 // ---------------------------------------------------------------------------
 
-const FULL_FLOW = ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil', 'sim', '15 mil', '3 anos', 'não', 'sim'];
+const FULL_FLOW = ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil', 'não sei', 'sim', '15 mil', '3 anos', 'não', 'sim'];
 
 /** Conversa até o resultado: o orquestrador calcula; aqui a fase SIMULATING é fechada à mão. */
 async function atResult(): Promise<Chat> {

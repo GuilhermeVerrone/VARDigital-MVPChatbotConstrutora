@@ -19,6 +19,8 @@ export interface SimulationChoices {
   system?: 'SAC' | 'PRICE';
   desiredTermMonths?: number;
   useFullDownPayment?: boolean;
+  /** Parcela que o lead quer pagar (teto com folga pequena); vale só nesta simulação. */
+  desiredInstallment?: number;
   /** Entrada informada num ajuste ("e se eu der 80 mil?"): vale só nesta simulação, o perfil não muda. */
   availableDownPayment?: number;
 }
@@ -76,6 +78,7 @@ export function buildSimulationInput(args: {
     construction,
     ...(choices.system ? { system: choices.system } : {}),
     ...(choices.desiredTermMonths ? { desiredTermMonths: choices.desiredTermMonths } : {}),
+    ...(choices.desiredInstallment ? { desiredInstallment: choices.desiredInstallment } : {}),
     ...(choices.useFullDownPayment !== undefined ? { useFullDownPayment: choices.useFullDownPayment } : {}),
   };
 }

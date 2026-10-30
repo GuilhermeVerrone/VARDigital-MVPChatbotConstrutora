@@ -55,7 +55,7 @@ function bot(ch = fakeChannel()) {
   return { say, ch, handle };
 }
 
-const FLOW = ['Maria da Silva', 'sim', 'maria@gmail.com', '1', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil', 'sim', '15 mil', '3 anos', 'não', 'sim'];
+const FLOW = ['Maria da Silva', 'sim', 'maria@gmail.com', '1', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil', 'não sei', 'sim', '15 mil', '3 anos', 'não', 'sim'];
 
 describe('consentimento (LGPD)', () => {
   it('antes do aceite nada de pessoal é gravado; o aceite cria lead, consentimento versionado e conversa', async () => {
