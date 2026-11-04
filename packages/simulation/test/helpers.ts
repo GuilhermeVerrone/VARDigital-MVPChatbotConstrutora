@@ -35,6 +35,7 @@ export function simpleParams(lines: CreditLine[] = [simpleLine()], overrides: Pa
     validTo: null,
     defaultSystem: 'SAC',
     adjustmentToleranceRatio: 0.1,
+    desiredInstallmentToleranceRatio: 0.15,
     highCommitmentAlertRatio: 0.9,
     informalIncomeTypes: ['AUTONOMO', 'OUTROS'],
     creditLines: lines,

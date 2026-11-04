@@ -47,7 +47,7 @@ const range = (s: { validFrom: string; validTo: string | null }) => `${s.validFr
 function describe(set: StoredParameterSet, out: CliIo['out']): void {
   const p = set.params;
   out(`versão ${set.version} [${p.status}]  vigência ${range(set)}${set.supersededById ? '  (SUBSTITUÍDA)' : ''}`);
-  out(`  sistema padrão ${p.defaultSystem}; tolerância de ajuste ${pct(p.adjustmentToleranceRatio)}; alerta de comprometimento ${pct(p.highCommitmentAlertRatio)}`);
+  out(`  sistema padrão ${p.defaultSystem}; tolerância de ajuste ${pct(p.adjustmentToleranceRatio)}; folga da parcela desejada ${pct(p.desiredInstallmentToleranceRatio)}; alerta de comprometimento ${pct(p.highCommitmentAlertRatio)}`);
   out(`  renda informal: ${p.informalIncomeTypes.join(', ') || '(nenhuma)'}`);
   for (const l of p.creditLines) {
     out(`  - ${l.id} (${l.name}), prioridade ${l.priority}`);

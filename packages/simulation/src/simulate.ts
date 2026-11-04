@@ -6,9 +6,6 @@ import { floorCents, roundCents } from './money';
 import { parseSimulationParameters, type CreditLine, type SimulationParameters } from './params';
 import { toRates, type Rates } from './rates';
 
-/** Quanto acima da parcela desejada ainda conta como "pouca diferença" (ex.: 2.000 → até 2.300). */
-export const DESIRED_INSTALLMENT_TOLERANCE_RATIO = 0.15;
-
 export type Verdict = 'VIAVEL' | 'VIAVEL_COM_AJUSTES' | 'INVIAVEL';
 
 export type IneligibilityReason =
@@ -283,7 +280,7 @@ function evaluateLine(line: CreditLine, input: SimulationInput, params: Simulati
   if (wish !== undefined && wish < capacity.maxInstallment && !ageBlocked && capacity.maxInstallment > 0) {
     const attempts = [
       [wish, 'WITHIN'],
-      [wish * (1 + DESIRED_INSTALLMENT_TOLERANCE_RATIO), 'SLIGHTLY_ABOVE'],
+      [wish * (1 + params.desiredInstallmentToleranceRatio), 'SLIGHTLY_ABOVE'],
     ] as const;
     for (const [cap, outcome] of attempts) {
       const principal = Math.min(maxByLtv, maxPrincipalForInstallment(system, Math.min(cap, capacity.maxInstallment), rates.monthly, term.months, charges));

@@ -91,6 +91,8 @@ export const simulationParametersSchema = z
     defaultSystem: z.enum(['SAC', 'PRICE']),
     /** Falta de entrada até esta fração da entrada necessária → "viável com ajustes". */
     adjustmentToleranceRatio: ratio,
+    /** Quanto acima da parcela desejada ainda conta como "pouca diferença" (ex.: 0,15: 2.000 → até 2.300). */
+    desiredInstallmentToleranceRatio: ratio,
     /** Alerta de comprometimento alto a partir desta fração do limite da linha. */
     highCommitmentAlertRatio: ratio,
     informalIncomeTypes: z.array(z.enum(INCOME_TYPES)),

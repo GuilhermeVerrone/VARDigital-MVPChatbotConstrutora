@@ -235,6 +235,7 @@ model ParameterSet {
   validTo                  DateTime?          @map("valid_to") @db.Date
   defaultSystem            AmortizationSystem @map("default_system")
   adjustmentToleranceRatio Decimal            @map("adjustment_tolerance_ratio") @db.Decimal(9, 8)
+  desiredInstallmentToleranceRatio Decimal    @map("desired_installment_tolerance_ratio") @db.Decimal(9, 8)
   highCommitmentAlertRatio Decimal            @map("high_commitment_alert_ratio") @db.Decimal(9, 8)
   informalIncomeTypes      IncomeType[]       @map("informal_income_types")
   /// Versão da qual esta foi derivada (null na primeira importação).
