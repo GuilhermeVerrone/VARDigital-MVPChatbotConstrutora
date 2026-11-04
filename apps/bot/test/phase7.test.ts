@@ -341,7 +341,7 @@ describe('consentimento versionado', () => {
     const [greeting] = await b.say('oi');
     await b.say('sim');
     const c = await t.db.consent.findFirstOrThrow();
-    expect(c).toMatchObject({ textVersion: 'ilustrativo-1', channel: 'WHATSAPP', revokedAt: null });
+    expect(c).toMatchObject({ textVersion: 'ilustrativo-2', channel: 'WHATSAPP', revokedAt: null });
     expect(c.textSnapshot).toBe(greeting!.text);
     expect(c.textSnapshot).toContain('Você concorda?');
 
