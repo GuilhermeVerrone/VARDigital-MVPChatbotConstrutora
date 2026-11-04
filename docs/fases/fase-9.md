@@ -22,13 +22,13 @@
 ### Testes no WhatsApp real (número dedicado)
 Registrar cada resultado com print ou log.
 
-1. **Botões do `/interactive`** — enviado em 2026-11-04 para o piloto: `POST /api/messages/piloto/{jid}/interactive` com `body`, `footer` e 2 `buttons` `{id,text}` → API respondeu sucesso (`nativeFlowMessage` com 2 `quick_reply`, status `PENDING`). **Falta confirmar no aparelho** se os botões aparecem e se funcionam (Android, iOS, web).
+1. **Botões do `/interactive`** — enviado em 2026-11-04 para o piloto: `POST /api/messages/piloto/{jid}/interactive` com `body`, `footer` e 2 `buttons` `{id,text}` → API respondeu sucesso (`nativeFlowMessage` com 2 `quick_reply`, status `PENDING`). **Resultado no aparelho (informado pelo usuário): a mensagem com botões NÃO chegou.** Controle: um texto simples (`/send`) enviado logo depois, ao mesmo número, chegou. Logo a sessão entrega, e o WhatsApp descartou a mensagem interativa. Limite do teste: um único aparelho/cliente (plataforma não registrada); iOS e web não foram testados e a mensagem foi enviada ao próprio número do piloto.
 2. **Envio ativo** para número que nunca falou com a sessão — _não testado_
 3. **Resposta a esse envio**: chega como `@lid` ou telefone? — _não testado_
 4. **Checagem de número no WA-AKG (G20)** — **existe**: `POST /api/chat/{sessão}/check` com `{"numbers":[...]}` devolve `{number, exists, jid}`. Teste: `5513981264295` → `exists:true`, `jid` `@s.whatsapp.net`; `5500900000002` → `exists:false`, `jid:null`; também aceita o JID completo. Dá para validar o telefone do formulário antes do 1º contato (Fase 13).
 
 ### Decisões que dependem dos testes
-- Botões: adotar `sendButtons` (Fase 12) ou manter texto numerado.
+- Botões: **decisão proposta: manter o texto numerado e não implementar `sendButtons` na Fase 12** (a mensagem interativa não chegou no aparelho testado). Reabrir só se um teste em outro aparelho mostrar o contrário.
 - Casamento do lead por LID ou só por telefone/código `ELV-xxxx`.
 
 ## Fora desta fase
