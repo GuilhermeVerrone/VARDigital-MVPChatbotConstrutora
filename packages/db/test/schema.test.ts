@@ -23,7 +23,7 @@ afterAll(() => t.drop());
 const PKG_DIR = fileURLToPath(new URL('..', import.meta.url));
 
 describe('migrations', () => {
-  it('criam as 11 entidades do plano (+ linhas de crédito por versão)', async () => {
+  it('criam as entidades do plano (+ linhas de crédito por versão e as da V2)', async () => {
     const { rows } = await t.sql(`select table_name from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE' order by 1`);
     expect(rows.map((r) => r.table_name)).toEqual([
       '_prisma_migrations',
@@ -39,11 +39,15 @@ describe('migrations', () => {
       'developments', // Empreendimento
       'erasure_tasks', // limpezas pendentes no WA-AKG (Fase 7)
       'financial_profiles', // PerfilFinanceiro
+      'flow_configs', // fluxo do bot versionado (V2)
       'leads', // Lead
       'parameter_sets', // versão/vigência dos parâmetros
       'processed_messages', // MensagemProcessada
+      'sales_conditions', // condições comerciais versionadas (V2)
       'simulations', // Simulacao
       'units', // Unidade
+      'user_sessions', // sessões do painel (V2)
+      'users', // usuários do painel (V2)
     ]);
   });
 
