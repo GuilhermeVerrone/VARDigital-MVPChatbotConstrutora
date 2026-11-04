@@ -77,7 +77,7 @@ export const STEPS: Record<Exclude<QuestionState, 'CONFIRM' | 'CORRECTION_MENU' 
   PHONE: {
     fields: [{ key: 'phone', kind: 'phone' }],
     question: () => text(T.askPhone),
-    hint: 'Informe o DDD e o número. Ex.: (13) 98126-4295',
+    hint: 'Informe o DDD e o número. Ex.: (11) 91234-5678',
     apply: (d, v) => ({ ...d, phone: str(v.phone) }),
     ack: (v) => T.ack(`telefone ${formatPhone(str(v.phone))}`),
     next: () => 'EMAIL',

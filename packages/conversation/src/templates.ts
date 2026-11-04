@@ -26,7 +26,7 @@ export const T = {
 
   askName: 'Qual é o seu nome completo?',
   askPhoneConfirm: (phone: string) => `Posso usar este número, ${phone}, para o corretor falar com você? (sim/não)`,
-  askPhone: 'Qual o seu telefone com DDD? Pode ser assim: (13) 98126-4295',
+  askPhone: 'Qual o seu telefone com DDD? Pode ser assim: (11) 91234-5678',
   askEmail: 'Qual o seu e-mail? É opcional: se preferir pular, responda *pular*.',
   askInterest: (development: string) => ({ title: `Qual tipo de unidade do ${development} você procura?`, footer: 'Responda com o número.' }),
   askIncome: 'Para simular, qual é a renda bruta mensal da família? Pode somar a de quem vai comprar junto.',
