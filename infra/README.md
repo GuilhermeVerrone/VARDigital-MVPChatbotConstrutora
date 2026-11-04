@@ -1,6 +1,6 @@
 # infra — ambiente local
 
-Sobe, isolados, o WA-AKG (gateway WhatsApp **não oficial**, só para MVP/piloto) com seu MySQL, e o nosso lado: Postgres próprio, bot (Fastify) e Ollama.
+Sobe, isolados, o WA-AKG (gateway WhatsApp **não oficial**, só para MVP/piloto) com seu MySQL, e o nosso lado: Postgres próprio, bot (Fastify) e, opcionalmente, Ollama (o LLM padrão é a API da Anthropic).
 
 ```
              rede wa-akg-internal                rede edge (198.18.100.0/24)              rede bot-internal
@@ -20,15 +20,37 @@ docker compose up -d --build # build do WA-AKG leva ~5 min e ocupa ~1,8 GB de im
 ./scripts/verify-phase0.sh     # todos os critérios automáticos da Fase 0
 ```
 
-### Ollama
+### LLM (API da Anthropic, padrão)
+
+O fallback dos parsers e o FAQ usam a **API da Anthropic** (modelo pequeno, `claude-haiku-5-5` por padrão; D13). Não há Ollama na stack padrão.
+
+| Variável (`infra/.env`) | Efeito |
+|---|---|
+| `ANTHROPIC_API_KEY` | Chave da API. **Só aqui**: nunca no código, nos logs nem em issues. Sem ela o bot sobe e segue só com os parsers (repergunta); `GET /health/deps` mostra `llm` como degradado. |
+| `LLM_PROVIDER` | `anthropic` (padrão) ou `ollama`. |
+| `LLM_MODEL` | Vazio = padrão do provedor (`claude-haiku-5-5` / `qwen2.5:7b`). |
+| `LLM_MAX_CALLS_PER_CONVERSATION` | Teto de chamadas por conversa (padrão 30). Depois dele, só os parsers. |
+| `LLM_ENABLED=false` | Desliga o LLM de vez. |
+
+O que sai do servidor: só o texto da resposta do lead (com e-mail, telefone, documento e o nome do lead mascarados) e a definição do campo. Campos de nome, telefone e e-mail nunca vão ao LLM. O conteúdo não é registrado nos logs. Confira os termos de retenção e de treinamento da conta da API antes de usar com lead real.
+
+### Ollama (opcional)
+
+Só com `LLM_PROVIDER=ollama`. Precisa de ~6 GB livres, por isso **não** cabe na VPS de 4 GB junto com o resto.
 
 | Ambiente | Como rodar | `infra/.env` |
 |---|---|---|
-| macOS (dev) | `OLLAMA_HOST=0.0.0.0:11434 ollama serve` no host (Docker no Mac não usa a GPU/Metal) e `ollama pull qwen2.5:7b` | `COMPOSE_PROFILES=` e `OLLAMA_BASE_URL=http://host.docker.internal:11434` |
-| Linux/servidor | container do compose | `COMPOSE_PROFILES=ollama` e `OLLAMA_BASE_URL=http://ollama:11434`; depois `docker compose exec ollama ollama pull qwen2.5:7b` |
+| macOS (dev) | `OLLAMA_HOST=0.0.0.0:11434 ollama serve` no host (Docker no Mac não usa a GPU/Metal) e `ollama pull qwen2.5:7b` | `LLM_PROVIDER=ollama`, `COMPOSE_PROFILES=` e `OLLAMA_BASE_URL=http://host.docker.internal:11434` |
+| Linux com RAM sobrando | container do compose (perfil `ollama`) | `LLM_PROVIDER=ollama`, `COMPOSE_PROFILES=ollama` e `OLLAMA_BASE_URL=http://ollama:11434`; depois `docker compose exec ollama ollama pull qwen2.5:7b` |
 
-`init-env.sh` já escolhe pelo sistema operacional. A imagem `ollama/ollama` tem ~2,8 GB comprimida (arm64).
-O modelo escolhido na Fase 4 é `qwen2.5:7b` (ver `docs/fases/fase-4.md`).
+A imagem `ollama/ollama` tem ~2,8 GB comprimida (arm64). O modelo escolhido na Fase 4 é `qwen2.5:7b` (ver `docs/fases/fase-4.md`).
+
+### VPS de 4 GB: limites, swap e medição
+
+- Todo container tem `mem_limit` (variáveis `*_MEM_LIMIT` no `.env.example`); o heap do Node fica abaixo do limite (`NODE_OPTIONS`). O MySQL do WA-AKG sobe com buffer reduzido e sem `performance_schema`; o Postgres do bot com `shared_buffers` de 48 MB.
+- `sudo ./scripts/setup-swap.sh [GB]` cria um swapfile (padrão 2 GB, `swappiness=10`) na VPS. É rede de segurança, não extensão de RAM.
+- Imagens: construa fora da VPS (CI ou máquina local) e baixe de um registry; o build do WA-AKG (Next.js) estoura a memória de uma VPS pequena.
+- Medição: `./scripts/measure-memory.sh -- node scripts/simulate-load.mjs --secret <WA_AKG_WEBHOOK_SECRET>` amostra o `docker stats` durante conversas simuladas e falha se a soma dos picos passar de 2,5 GB. Resultado em `docs/fases/fase-11b.md`.
 
 ### Conectar o número de teste (manual)
 
