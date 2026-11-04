@@ -117,12 +117,17 @@ export {
 } from './seed-elevare';
 export { DemoResetRefusedError, resetDemo, type DemoResetOptions, type DemoResetSummary } from './demo-reset';
 export {
+  buildPaymentInput,
   buildSimulationInput,
   isSimulationDataError,
   MissingSimulationDataError,
   pickUnitForTypology,
+  runAndRecordPaymentSimulation,
   runAndRecordSimulation,
+  type PaymentSimulationChoices,
+  type RecordedPaymentSimulation,
   type RecordedSimulation,
+  type RunPaymentSimulationArgs,
   type RunSimulationArgs,
   type SimulationChoices,
 } from './simulation-service';
