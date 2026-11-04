@@ -59,8 +59,9 @@ export class SalesConditionTimelineError extends Error {
 
 /** Parte da condição que vai para a coluna `rules` (o resto tem coluna própria). */
 function rulesOf(condition: SalesCondition): Prisma.InputJsonValue {
-  const { version: _v, status: _s, validFrom: _f, validTo: _t, ...rules } = condition;
-  return rules as unknown as Prisma.InputJsonValue;
+  const rules: Record<string, unknown> = { ...condition };
+  for (const column of ['version', 'status', 'validFrom', 'validTo']) delete rules[column];
+  return rules as Prisma.InputJsonValue;
 }
 
 function fromRow(row: Row): StoredSalesCondition {
