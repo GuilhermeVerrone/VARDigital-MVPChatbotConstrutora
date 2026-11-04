@@ -4,7 +4,9 @@
 
 - Ao iniciar uma fase do plano, crie uma branch nova a partir da `main` atualizada, no padrão `v2/fase-<n>-<tema>` (ex.: `v2/fase-10-motor`, `v2/fase-11b-anthropic`).
 - Todo o trabalho da fase vai nessa branch, em commits curtos (abaixo).
-- Ao concluir a fase, faça push e abra a PR para a `main` com `gh pr create`. No título, coloque a fase e o tema. Na descrição, liste o que foi feito, os testes rodados e o que ficou pendente.
+- Ao concluir a fase, faça push e abra a PR para a `main` com `gh pr create`.
+- Título da PR em inglês, no mesmo formato dos commits (`<tipo>: <descrição>`), citando a fase (ex.: `feat: phase 10 payment engine with three payment modes`).
+- Descrição da PR: liste o que foi feito, os testes rodados e o que ficou pendente.
 - Não faça merge da PR; quem revisa e mergeia é o usuário.
 - Não comece a próxima fase na mesma branch.
 
