@@ -74,6 +74,7 @@ export const T = {
   erased:
     'Pronto, apaguei os seus dados do nosso sistema. Se algum corretor já tinha recebido o seu resumo, vou avisá-lo para apagar também. Se quiser simular de novo um dia, é só me chamar. 😊',
   handoffReturned: 'O corretor me devolveu a conversa. Vamos continuar de onde paramos:',
+  handoffClosed: 'O corretor registrou que o seu atendimento foi concluído. Se precisar de mais alguma coisa, é só me chamar.',
   calculating: 'Prontinho, anotei tudo! 🙌 Já estou fazendo as contas, é rapidinho.',
   recalculating: 'Certo, vou refazer as contas com essa mudança.',
   brokerInformed: 'Já passei o seu resumo para um corretor da nossa equipe. Ele deve te chamar por aqui em breve.',

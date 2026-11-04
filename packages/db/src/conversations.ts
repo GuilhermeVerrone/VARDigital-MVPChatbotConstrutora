@@ -212,3 +212,84 @@ export async function listActiveTypologies(db: Db): Promise<{ developmentName: s
   if (!dev) throw new Error('nenhum empreendimento ativo cadastrado (rode o seed)');
   return { developmentName: dev.name, typologies: [...new Set(dev.units.map((u) => u.typology))].sort() };
 }
+
+// ---------------------------------------------------------------------------
+// Handoff: o corretor assume e devolve a conversa (Fase 7)
+// ---------------------------------------------------------------------------
+
+export type TakeHandoffResult =
+  | { ok: true; conversationId: string; leadId: string; name: string | null; phone: string | null; alreadyYours: boolean }
+  | { ok: false; reason: 'not_found' | 'not_waiting' | 'taken_by_other'; takenByName?: string };
+
+const normalizeCode = (code: string) => code.trim().toUpperCase();
+
+/** O corretor assume o atendimento do código: o bot continua calado e o lead passa a ser dele. */
+export async function takeHandoff(db: Db, code: string, brokerId: string, now: Date = new Date()): Promise<TakeHandoffResult> {
+  return db.$transaction(async (tx) => {
+    const conv = await tx.conversation.findUnique({ where: { handoffCode: normalizeCode(code) }, include: { lead: true, takenBy: true } });
+    if (!conv) return { ok: false, reason: 'not_found' };
+    if (!conv.handoff || conv.state !== 'HANDOFF') return { ok: false, reason: 'not_waiting' };
+    const ctxPhone = (conv.context as { data?: { phone?: unknown } } | null)?.data?.phone;
+    const who = { conversationId: conv.id, leadId: conv.leadId, name: conv.lead.name, phone: conv.lead.phone ?? (typeof ctxPhone === 'string' ? ctxPhone : null) };
+    if (conv.takenByBrokerId === brokerId) return { ok: true, ...who, alreadyYours: true };
+    if (conv.takenByBrokerId) return { ok: false, reason: 'taken_by_other', takenByName: conv.takenBy?.name ?? 'outro corretor' };
+    await tx.conversation.update({ where: { id: conv.id }, data: { takenByBrokerId: brokerId, takenAt: now } });
+    await tx.lead.update({ where: { id: conv.leadId }, data: { brokerId } });
+    await tx.auditLog.create({ data: { actor: 'broker', entity: 'lead', entityId: conv.leadId, action: 'handoff_taken', after: { brokerId }, at: now } });
+    return { ok: true, ...who, alreadyYours: false };
+  });
+}
+
+export type ReleaseHandoffLookup =
+  | { ok: true; conversationId: string; leadId: string; chatId: string | null; state: string; context: unknown; history: unknown }
+  | { ok: false; reason: 'not_found' | 'not_waiting' | 'not_yours' };
+
+/** Conversa em handoff que o corretor pode devolver ao bot (a que ele assumiu). */
+export async function findReleasableHandoff(db: Db, code: string, brokerId: string): Promise<ReleaseHandoffLookup> {
+  const conv = await db.conversation.findUnique({ where: { handoffCode: normalizeCode(code) }, include: { lead: true } });
+  if (!conv) return { ok: false, reason: 'not_found' };
+  if (!conv.handoff || conv.state !== 'HANDOFF') return { ok: false, reason: 'not_waiting' };
+  if (conv.takenByBrokerId !== brokerId) return { ok: false, reason: 'not_yours' };
+  return { ok: true, conversationId: conv.id, leadId: conv.leadId, chatId: conv.lead.channelJid, state: conv.state, context: conv.context, history: conv.history };
+}
+
+export interface ReleaseHandoffArgs {
+  conversationId: string;
+  leadId: string;
+  brokerId: string;
+  state: string;
+  context: Prisma.InputJsonValue;
+  history: Prisma.InputJsonValue;
+  /** Status do lead depois da devolução. */
+  leadStatus: LeadStatus;
+  at: Date;
+}
+
+/** O corretor devolve a conversa: o bot volta a responder e um novo handoff gera um código novo. */
+export async function releaseHandoff(db: Db, a: ReleaseHandoffArgs): Promise<void> {
+  await db.$transaction(async (tx) => {
+    await tx.conversation.update({
+      where: { id: a.conversationId },
+      data: { state: a.state, context: a.context, history: a.history, handoff: false, handoffCode: null, takenByBrokerId: null, takenAt: null },
+    });
+    await tx.lead.update({ where: { id: a.leadId }, data: { status: a.leadStatus } });
+    await tx.auditLog.create({ data: { actor: 'broker', entity: 'lead', entityId: a.leadId, action: 'handoff_released', after: { brokerId: a.brokerId }, at: a.at } });
+  });
+}
+
+export interface WaitingHandoff {
+  code: string;
+  name: string | null;
+  since: Date | null;
+  takenByMe: boolean;
+}
+
+/** Handoffs em aberto do corretor: os atribuídos a ele (aguardando ou já assumidos por ele). */
+export async function listOpenHandoffs(db: Db, brokerId: string): Promise<WaitingHandoff[]> {
+  const rows = await db.conversation.findMany({
+    where: { handoff: true, state: 'HANDOFF', handoffCode: { not: null }, OR: [{ takenByBrokerId: brokerId }, { takenByBrokerId: null, lead: { brokerId } }] },
+    include: { lead: { select: { name: true } } },
+    orderBy: { handoffAt: 'asc' },
+  });
+  return rows.map((r) => ({ code: r.handoffCode!, name: r.lead.name, since: r.handoffAt, takenByMe: r.takenByBrokerId === brokerId }));
+}

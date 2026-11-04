@@ -25,7 +25,7 @@ const MAX_HISTORY = 60;
 
 export function initialSnapshot(): Snapshot {
   return {
-    state: 'NAME', data: {}, returnTo: null, failures: 0, resumeTo: null, lastInboundId: null, adjust: {}, simulationId: null, lgpdFrom: null, outbox: [], history: [],
+    state: 'NAME', data: {}, returnTo: null, failures: 0, resumeTo: null, lastInboundId: null, adjust: {}, simulationId: null, lgpdFrom: null, handoffFrom: null, outbox: [], history: [],
   };
 }
 
@@ -217,7 +217,7 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
     return done(next, again(lead, next));
   };
   const handoff = (s: Snapshot): StepResult =>
-    done({ ...s, state: 'HANDOFF', failures: 0 }, [text(T.handoff)], [
+    done({ ...s, state: 'HANDOFF', failures: 0, handoffFrom: handoffOrigin(s) }, [text(T.handoff)], [
       { type: 'handoff' }, { type: 'lead_status', status: 'HANDOFF' }, { type: 'audit', action: 'handoff_requested' },
     ]);
 
@@ -352,6 +352,27 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
 
   // alcançável só se `it` for um tipo novo não tratado
   return done(snap, again(null));
+}
+
+/** A pergunta em que o lead estava ao pedir o corretor (as telas de passagem apontam para onde ele estava antes). */
+function handoffOrigin(s: Snapshot): StateName {
+  if (s.state === 'HANDOFF_OFFER') return s.resumeTo ?? 'NAME';
+  if (s.state === 'LGPD_CONFIRM') return s.lgpdFrom ?? 'DONE';
+  if (s.state === 'CORRECTION_MENU') return s.resumeTo ?? 'CONFIRM';
+  return s.state;
+}
+
+/**
+ * O corretor devolveu a conversa ao bot: de volta à pergunta em que o lead estava (ou ao menu do
+ * resultado, se já houve simulação). `ready` diz o que enviar ao lead.
+ */
+export function resumeAfterHandoff(snap: Snapshot, env: FlowEnv, at: string): { snapshot: Snapshot; replies: Reply[] } {
+  const from = snap.handoffFrom;
+  const back: StateName = from && !TERMINAL.has(from) ? from : snap.simulationId ? 'RESULT' : 'DONE';
+  const next: Snapshot = { ...snap, state: back, failures: 0, handoffFrom: null };
+  const replies = back === 'DONE' ? [text(T.handoffClosed)] : withLead(T.handoffReturned, questionFor(back, next, env)[0]!);
+  const history = [...snap.history, ...replies.map((r) => ({ role: 'bot' as const, text: replyPreview(r), at }))].slice(-MAX_HISTORY);
+  return { snapshot: { ...next, outbox: replies, history }, replies };
 }
 
 /** Dica de formato para quando a resposta não é entendida. */

@@ -81,6 +81,8 @@ export interface Snapshot {
   simulationId: string | null;
   /** Estado em que o lead estava ao pedir a exclusão dos dados (para onde voltar se desistir). */
   lgpdFrom: StateName | null;
+  /** Estado em que o lead estava ao pedir o corretor (para onde voltar se o corretor devolver a conversa). */
+  handoffFrom: StateName | null;
   /** Respostas decididas e ainda não confirmadas como enviadas. */
   outbox: Reply[];
   history: HistoryEntry[];
