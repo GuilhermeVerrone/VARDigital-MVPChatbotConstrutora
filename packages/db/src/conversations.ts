@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import type { Db } from './client';
 import type { Prisma } from './generated/prisma/client';
 import type { IncomeType, LeadStatus, ScoreClass } from './generated/prisma/enums';
@@ -66,6 +67,8 @@ export async function deleteSession(db: Db, chatHash: string): Promise<void> {
 
 export interface StartConversationArgs extends ChatIdentity {
   textVersion: string;
+  /** Texto exato mostrado ao lead no aceite. */
+  textSnapshot?: string;
   state: string;
   context: Prisma.InputJsonValue;
   history: Prisma.InputJsonValue;
@@ -84,7 +87,7 @@ export async function startConversation(db: Db, a: StartConversationArgs): Promi
     } else {
       lead = await tx.lead.create({ data: { channelJid: a.chatId, phone: a.phone, status: 'IN_PROGRESS' } });
     }
-    await tx.consent.create({ data: { leadId: lead.id, textVersion: a.textVersion, channel: 'WHATSAPP', acceptedAt: a.at } });
+    await tx.consent.create({ data: { leadId: lead.id, textVersion: a.textVersion, textSnapshot: a.textSnapshot ?? null, channel: 'WHATSAPP', acceptedAt: a.at } });
     const conv = await tx.conversation.create({
       data: { leadId: lead.id, channel: 'WHATSAPP', state: a.state, context: a.context, history: a.history },
     });
@@ -105,10 +108,21 @@ export interface ProfileInput {
   co: { income: number; incomeType: IncomeType; birthDate: string; debts: number } | null;
 }
 
+// Sem 0/O/1/I/L: o código é digitado pelo corretor no celular.
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+function randomHandoffCode(): string {
+  let code = '';
+  for (const b of randomBytes(6)) code += CODE_ALPHABET[b % CODE_ALPHABET.length];
+  return code;
+}
+
 export interface TurnWrites {
   lead?: { name?: string; phone?: string; email?: string | null; birthDate?: string };
   status?: LeadStatus;
   handoff?: boolean;
+  /** Momento do turno (padrão: agora): data do handoff e da revogação do consentimento. */
+  at?: Date;
   audit?: string[];
   profile?: ProfileInput;
   /** Classe do lead pelo parecer da simulação (Fase 6). */
@@ -130,9 +144,19 @@ export interface SaveTurnArgs {
 export async function saveTurn(db: Db, a: SaveTurnArgs): Promise<void> {
   const w = a.writes ?? {};
   await db.$transaction(async (tx) => {
+    const conv = await tx.conversation.findUniqueOrThrow({ where: { id: a.conversationId }, select: { handoffCode: true } });
+    const handoffData: Prisma.ConversationUpdateInput = {};
+    if (w.handoff) {
+      handoffData.handoff = true;
+      // Um handoff novo (depois de o corretor devolver a conversa) começa sem responsável.
+      handoffData.handoffAt = w.at ?? new Date();
+      handoffData.takenBy = { disconnect: true };
+      handoffData.takenAt = null;
+      if (!conv.handoffCode) handoffData.handoffCode = await freeHandoffCode(tx);
+    }
     await tx.conversation.update({
       where: { id: a.conversationId },
-      data: { state: a.state, context: a.context, history: a.history, ...(w.handoff ? { handoff: true } : {}) },
+      data: { state: a.state, context: a.context, history: a.history, ...handoffData },
     });
     const leadData: Prisma.LeadUpdateInput = {};
     if (w.lead?.name !== undefined) leadData.name = w.lead.name;
@@ -144,6 +168,10 @@ export async function saveTurn(db: Db, a: SaveTurnArgs): Promise<void> {
       if (!owner || owner.id === a.leadId) leadData.phone = w.lead.phone;
     }
     if (w.status) leadData.status = w.status;
+    // Parar de receber é revogar o consentimento (o registro fica, com a data da revogação).
+    if (w.status === 'OPTED_OUT') {
+      await tx.consent.updateMany({ where: { leadId: a.leadId, revokedAt: null }, data: { revokedAt: w.at ?? new Date() } });
+    }
     if (w.scoreClass) leadData.scoreClass = w.scoreClass;
     if (Object.keys(leadData).length > 0) await tx.lead.update({ where: { id: a.leadId }, data: leadData });
 
@@ -164,6 +192,14 @@ export async function saveTurn(db: Db, a: SaveTurnArgs): Promise<void> {
       await tx.financialProfile.upsert({ where: { leadId: a.leadId }, create: { leadId: a.leadId, ...row }, update: row });
     }
   });
+}
+
+async function freeHandoffCode(tx: Pick<Db, 'conversation'>): Promise<string> {
+  for (let i = 0; i < 10; i++) {
+    const code = randomHandoffCode();
+    if (!(await tx.conversation.findUnique({ where: { handoffCode: code }, select: { id: true } }))) return code;
+  }
+  throw new Error('não consegui gerar um código de handoff livre');
 }
 
 /** Typologies disponíveis do empreendimento ativo (base das opções de interesse). */

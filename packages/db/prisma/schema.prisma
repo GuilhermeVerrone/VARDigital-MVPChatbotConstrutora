@@ -69,6 +69,7 @@ model Lead {
   financialProfile FinancialProfile?
   simulations      Simulation[]
   messages         ProcessedMessage[]
+  jobs             DeliveryJob[]
 
   @@index([brokerId])
   @@map("leads")
@@ -80,6 +81,8 @@ model Consent {
   leadId      String    @map("lead_id") @db.Uuid
   textVersion String    @map("text_version")
   channel     Channel
+  /// Texto exato mostrado ao lead no aceite (a versão sozinha não prova o que foi aceito).
+  textSnapshot String?  @map("text_snapshot")
   acceptedAt  DateTime  @map("accepted_at") @db.Timestamptz(3)
   revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
 
@@ -100,12 +103,20 @@ model Conversation {
   /// Histórico resumido (mensagens) repassado ao corretor no handoff.
   history      Json     @default("[]")
   handoff      Boolean  @default(false)
+  /// Código curto do handoff (o corretor responde "assumir <código>"). Preenchido no handoff.
+  handoffCode  String?  @unique @map("handoff_code")
+  handoffAt    DateTime? @map("handoff_at") @db.Timestamptz(3)
+  /// Corretor que assumiu a conversa (null = ainda aguardando alguém).
+  takenByBrokerId String? @map("taken_by_broker_id") @db.Uuid
+  takenAt      DateTime? @map("taken_at") @db.Timestamptz(3)
   startedAt    DateTime @default(now()) @map("started_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  takenBy Broker? @relation(fields: [takenByBrokerId], references: [id], onDelete: SetNull)
 
   @@index([leadId])
+  @@index([takenByBrokerId])
   @@map("conversations")
 }
 
@@ -352,6 +363,7 @@ model Broker {
 
   leads       Lead[]
   crmContacts CrmContact[]
+  taken       Conversation[]
 
   @@map("brokers")
 }
@@ -484,9 +496,12 @@ enum JobStatus {
 /// pessoal. Falha enfileira de novo com espera (spec §7.2: nenhum lead se perde).
 model DeliveryJob {
   id           String    @id @default(uuid()) @db.Uuid
-  /// CRM_SYNC | BROKER_NOTIFY
+  /// CRM_SYNC | BROKER_NOTIFY | HANDOFF_NOTIFY
   kind         String
-  simulationId String    @map("simulation_id") @db.Uuid
+  /// Entregas de simulação (CRM_SYNC, BROKER_NOTIFY).
+  simulationId String?   @map("simulation_id") @db.Uuid
+  /// Entregas de lead sem simulação (HANDOFF_NOTIFY).
+  leadId       String?   @map("lead_id") @db.Uuid
   /// Ex.: "BROKER_NOTIFY:<simulationId>"; para reenvios após ajuste, inclui um sufixo.
   dedupeKey    String    @unique @map("dedupe_key")
   /// Parâmetros do job (ex.: { update: true }). Sem dado pessoal.
@@ -499,8 +514,29 @@ model DeliveryJob {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   processedAt  DateTime? @map("processed_at") @db.Timestamptz(3)
 
-  simulation Simulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+  simulation Simulation? @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+  lead       Lead?       @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([status, availableAt])
+  @@index([leadId])
   @@map("delivery_jobs")
+}
+
+// ---------------------------------------------------------------------------
+// Exclusão do titular (Fase 7)
+// ---------------------------------------------------------------------------
+
+/// Pendência de apagar o histórico do contato no WA-AKG (que guarda as mensagens no banco dele e
+/// não tem endpoint para isso). O `chatId` só existe até a limpeza ser feita
+/// (`infra/scripts/wa-akg-erase.sh`); depois vira nulo e fica só o registro de que foi feita.
+model ErasureTask {
+  id          String    @id @default(uuid()) @db.Uuid
+  chatId      String?   @map("chat_id")
+  /// titular | retencao
+  reason      String
+  requestedAt DateTime  @default(now()) @map("requested_at") @db.Timestamptz(3)
+  doneAt      DateTime? @map("done_at") @db.Timestamptz(3)
+
+  @@index([doneAt])
+  @@map("erasure_tasks")
 }

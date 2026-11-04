@@ -5,12 +5,15 @@ import type { Prisma } from './generated/prisma/client';
 // Mesmas decisões da fila de entrada: o job é gravado antes de tentar entregar, a reserva expira
 // (lockedUntil) para outro worker retomar, e `dedupeKey` impede enfileirar a mesma entrega duas vezes.
 
-export type JobKind = 'CRM_SYNC' | 'BROKER_NOTIFY';
+export type JobKind = 'CRM_SYNC' | 'BROKER_NOTIFY' | 'HANDOFF_NOTIFY';
 
 export interface EnqueueJobArgs {
   kind: JobKind;
-  simulationId: string;
-  /** Padrão: "<kind>:<simulationId>". Use um sufixo para permitir reenvios (ex.: após ajuste). */
+  /** Entregas de simulação (CRM_SYNC, BROKER_NOTIFY). */
+  simulationId?: string;
+  /** Entregas de lead sem simulação (HANDOFF_NOTIFY). */
+  leadId?: string;
+  /** Padrão: "<kind>:<simulationId ou leadId>". Use um sufixo para permitir reenvios (ex.: após ajuste). */
   dedupeKey?: string;
   payload?: Prisma.InputJsonValue;
   availableAt?: Date;
@@ -19,7 +22,8 @@ export interface EnqueueJobArgs {
 export interface DeliveryJobItem {
   id: string;
   kind: JobKind;
-  simulationId: string;
+  simulationId: string | null;
+  leadId: string | null;
   payload: unknown;
   /** Número desta tentativa (1 na primeira). */
   attempts: number;
@@ -35,12 +39,15 @@ export interface ClaimJobOptions {
 
 /** Enfileira a entrega. Retorna false se já existia (nada é alterado). */
 export async function enqueueJob(db: Pick<Db, 'deliveryJob'>, a: EnqueueJobArgs): Promise<boolean> {
+  const target = a.simulationId ?? a.leadId;
+  if (!target) throw new Error('enqueueJob: informe simulationId ou leadId');
   const { count } = await db.deliveryJob.createMany({
     data: [
       {
         kind: a.kind,
-        simulationId: a.simulationId,
-        dedupeKey: a.dedupeKey ?? `${a.kind}:${a.simulationId}`,
+        simulationId: a.simulationId ?? null,
+        leadId: a.leadId ?? null,
+        dedupeKey: a.dedupeKey ?? `${a.kind}:${target}`,
         payload: a.payload ?? {},
         ...(a.availableAt ? { availableAt: a.availableAt } : {}),
       },
@@ -54,7 +61,7 @@ export async function enqueueJob(db: Pick<Db, 'deliveryJob'>, a: EnqueueJobArgs)
 export async function claimNextJob(db: Db, opts: ClaimJobOptions): Promise<DeliveryJobItem | null> {
   const now = opts.now ?? new Date();
   const lockedUntil = new Date(now.getTime() + opts.lockMs);
-  const kinds = opts.kinds ?? ['CRM_SYNC', 'BROKER_NOTIFY'];
+  const kinds = opts.kinds ?? ['CRM_SYNC', 'BROKER_NOTIFY', 'HANDOFF_NOTIFY'];
 
   // Reserva vencida de job que já gastou todas as tentativas: encerra como DEAD.
   await db.$executeRaw`
@@ -63,7 +70,7 @@ export async function claimNextJob(db: Db, opts: ClaimJobOptions): Promise<Deliv
            last_error = COALESCE(last_error, 'reserva expirada após esgotar as tentativas')
      WHERE status = 'PROCESSING'::"JobStatus" AND locked_until < ${now} AND attempts >= ${opts.maxAttempts}`;
 
-  const rows = await db.$queryRaw<{ id: string; kind: JobKind; simulation_id: string; payload: unknown; attempts: number }[]>`
+  const rows = await db.$queryRaw<{ id: string; kind: JobKind; simulation_id: string | null; lead_id: string | null; payload: unknown; attempts: number }[]>`
     UPDATE delivery_jobs
        SET status = 'PROCESSING'::"JobStatus", attempts = attempts + 1, locked_until = ${lockedUntil}
      WHERE id = (
@@ -72,14 +79,16 @@ export async function claimNextJob(db: Db, opts: ClaimJobOptions): Promise<Deliv
             OR (c.status = 'PROCESSING'::"JobStatus" AND c.locked_until < ${now}))
           AND c.attempts < ${opts.maxAttempts}
           AND c.kind = ANY(${kinds})
-        -- O aviso ao corretor é o que tem prazo (≤ 1 min); o CRM vem logo depois.
-        ORDER BY c.available_at, c.created_at, (c.kind = 'BROKER_NOTIFY') DESC, c.id
+        -- Os avisos ao corretor são o que tem prazo (≤ 1 min); o CRM vem logo depois.
+        ORDER BY c.available_at, c.created_at, (c.kind <> 'CRM_SYNC') DESC, c.id
         LIMIT 1
         FOR UPDATE SKIP LOCKED)
-    RETURNING id, kind, simulation_id, payload, attempts`;
+    RETURNING id, kind, simulation_id, lead_id, payload, attempts`;
 
   const row = rows[0];
-  return row ? { id: row.id, kind: row.kind, simulationId: row.simulation_id, payload: row.payload, attempts: row.attempts } : null;
+  return row
+    ? { id: row.id, kind: row.kind, simulationId: row.simulation_id, leadId: row.lead_id, payload: row.payload, attempts: row.attempts }
+    : null;
 }
 
 export async function completeJob(db: Db, id: string, now: Date = new Date()): Promise<boolean> {

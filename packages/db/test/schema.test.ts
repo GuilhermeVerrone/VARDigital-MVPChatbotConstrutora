@@ -37,6 +37,7 @@ describe('migrations', () => {
       'crm_simulations', // simulações anexadas ao contato
       'delivery_jobs', // fila de entregas de saída (CRM, corretor)
       'developments', // Empreendimento
+      'erasure_tasks', // limpezas pendentes no WA-AKG (Fase 7)
       'financial_profiles', // PerfilFinanceiro
       'leads', // Lead
       'parameter_sets', // versão/vigência dos parâmetros

@@ -67,6 +67,7 @@ export function createDeliveryHandler(deps: DeliveryDeps) {
 
   /** RF-41: cria ou atualiza o contato pelo telefone (nunca duplica) e anexa a simulação. */
   async function syncCrm(job: DeliveryJobItem): Promise<void> {
+    if (!job.simulationId) throw new PermanentJobError('job sem simulação');
     const b = await loadSimulationBundle(db, job.simulationId);
     const phone = await phoneOf(b);
     if (!phone) throw new PermanentJobError('lead sem telefone: não dá para deduplicar no CRM');
@@ -86,6 +87,7 @@ export function createDeliveryHandler(deps: DeliveryDeps) {
 
   /** RF-33/39: manda o card e o PDF ao corretor responsável pelo lead (round-robin no primeiro envio). */
   async function notifyBroker(job: DeliveryJobItem): Promise<void> {
+    if (!job.simulationId) throw new PermanentJobError('job sem simulação');
     const b = await loadSimulationBundle(db, job.simulationId);
     const phone = await phoneOf(b);
     const broker = await assignBroker(db, b.lead.id, { phone });

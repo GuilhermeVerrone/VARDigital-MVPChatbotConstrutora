@@ -12,6 +12,17 @@ export {
   type EnqueueJobArgs,
   type JobKind,
 } from './jobs';
+export {
+  eraseLead,
+  listPendingErasures,
+  markErasureDone,
+  purgeInactive,
+  type EraseOptions,
+  type ErasureReason,
+  type ErasureSummary,
+  type PendingErasure,
+  type RetentionOptions,
+} from './erasure';
 export { loadSimulationBundle, markDelivered, markSimulated, scoreClassFor, type SimulationBundle } from './dossier-data';
 export { addDays, dateFromIso, isoFromDate, num, todayIso } from './convert';
 export * from './generated/prisma/enums';
