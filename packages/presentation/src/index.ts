@@ -1,4 +1,5 @@
 export { collectNumbers, unexplainedNumbers } from './audit';
+export { handoffCard, historyLines, type HandoffCardArgs, type HandoffHistoryEntry } from './handoff';
 export { dossierCard, leadClassFor, type DossierOptions } from './dossier';
 export { brl, dateTimeBr, phoneBr } from './format';
 export { resultMessage, resultMessages } from './lead-message';
