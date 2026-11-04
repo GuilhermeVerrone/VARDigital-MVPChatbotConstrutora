@@ -5,6 +5,7 @@ import { SimulatedCrm } from '@mvp/crm';
 import { createDb } from '@mvp/db';
 import { loadPrompt, OllamaClient } from '@mvp/llm';
 import { loadConfig } from './config';
+import { LOG_REDACT_PATHS } from './lib/mask';
 import { createDeliveryHandler } from './delivery';
 import { createDeliveryWorker } from './delivery-worker';
 import { createDependencyChecks } from './deps';
@@ -66,7 +67,7 @@ const app = buildServer({
     ...(https ? { https } : {}),
     logger: {
       level: config.LOG_LEVEL,
-      redact: { paths: ['req.headers["x-webhook-signature"]', 'req.headers.authorization', 'req.headers["x-api-key"]'], censor: '[redacted]' },
+      redact: { paths: LOG_REDACT_PATHS, censor: '[redacted]' },
     },
   },
 });

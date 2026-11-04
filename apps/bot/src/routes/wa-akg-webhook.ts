@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { parseWaAkgWebhook, type PhoneAllowlist, verifyWaAkgSignature } from '@mvp/channel';
 import type { InboxWriter } from '../inbox';
-import { maskJid } from '../lib/mask';
+import { maskJid, safeError } from '../lib/mask';
 
 export const WA_AKG_WEBHOOK_PATH = '/webhooks/wa-akg';
 
@@ -76,7 +76,7 @@ export function waAkgWebhookRoutes(app: FastifyInstance, opts: WaAkgWebhookOptio
     try {
       created = await opts.inbox.enqueue(parsed.message);
     } catch (err) {
-      req.log.error({ err, messageId: parsed.message.externalId }, 'falha ao gravar mensagem na fila');
+      req.log.error({ error: safeError(err), messageId: parsed.message.externalId }, 'falha ao gravar mensagem na fila');
       return reply.code(500).send({ error: 'enqueue failed' });
     }
     if (created) opts.onEnqueued?.();

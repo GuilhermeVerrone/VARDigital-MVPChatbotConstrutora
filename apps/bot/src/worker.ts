@@ -1,5 +1,5 @@
 import { ChannelError, type InboundMessage } from '@mvp/channel';
-import { maskJid } from './lib/mask';
+import { maskJid, safeError } from './lib/mask';
 import type { InboxReader } from './inbox';
 
 export interface WorkerLogger {
@@ -63,7 +63,7 @@ export function createWorker(opts: WorkerOptions): Worker {
     try {
       await opts.handle(message);
     } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
+      const error = safeError(err);
       const permanent = err instanceof ChannelError && !err.retryable;
       if (permanent || attempts >= opts.maxAttempts) {
         opts.log.error({ ...ctx, error, permanent }, 'mensagem descartada (DEAD)');
@@ -87,7 +87,7 @@ export function createWorker(opts: WorkerOptions): Worker {
         if (await processOne()) continue;
       } catch (err) {
         // Banco fora, por exemplo: não derruba o processo; tenta de novo no próximo ciclo.
-        opts.log.error({ error: err instanceof Error ? err.message : String(err) }, 'erro no worker');
+        opts.log.error({ error: safeError(err) }, 'erro no worker');
       }
       if (!stopped) await sleep(pollMs);
     }

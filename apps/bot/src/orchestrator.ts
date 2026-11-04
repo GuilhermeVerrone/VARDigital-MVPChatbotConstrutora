@@ -12,6 +12,7 @@ import {
   type Broker, type ChatIdentity, type Db, type LoadedChat, type TurnWrites,
 } from '@mvp/db';
 import { buildSimulationPdf, dateTimeBr, pdfFileName, phoneBr, resultMessages } from '@mvp/presentation';
+import { safeError } from './lib/mask';
 import { B, parseBrokerCommand, type BrokerCommand } from './broker-commands';
 import { toView } from './view';
 import type { InterpretDeps } from '@mvp/llm';
@@ -352,7 +353,7 @@ export function createOrchestrator(opts: OrchestratorOptions) {
     await bestEffort(channel.setPresence(msg.chatId, 'paused'));
     if (notice) {
       await channel.sendText(notice.to, notice.text).catch((err: unknown) =>
-        opts.log?.warn({ error: err instanceof Error ? err.message : String(err) }, 'não consegui avisar o corretor da exclusão de dados; avisar manualmente'),
+        opts.log?.warn({ error: safeError(err) }, 'não consegui avisar o corretor da exclusão de dados; avisar manualmente'),
       );
     }
   }

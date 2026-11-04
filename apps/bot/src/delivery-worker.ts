@@ -1,5 +1,6 @@
 import { claimNextJob, completeJob, failJob, type Db, type DeliveryJobItem } from '@mvp/db';
 import { isPermanent } from './delivery';
+import { safeError } from './lib/mask';
 import type { Worker, WorkerLogger } from './worker';
 
 export interface DeliveryWorkerOptions {
@@ -48,7 +49,7 @@ export function createDeliveryWorker(opts: DeliveryWorkerOptions): Worker {
     try {
       await opts.handle(job);
     } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
+      const error = safeError(err);
       const permanent = isPermanent(err);
       if (permanent || job.attempts >= opts.maxAttempts) {
         opts.log.error({ ...ctx, error, permanent }, 'entrega descartada (DEAD): requer atenção');
@@ -70,7 +71,7 @@ export function createDeliveryWorker(opts: DeliveryWorkerOptions): Worker {
       try {
         if (await processOne()) continue;
       } catch (err) {
-        opts.log.error({ error: err instanceof Error ? err.message : String(err) }, 'erro no worker de entregas');
+        opts.log.error({ error: safeError(err) }, 'erro no worker de entregas');
       }
       if (!stopped) await sleep(pollMs);
     }
