@@ -55,6 +55,23 @@ export {
   type EnqueueInboundArgs,
   type InboxItem,
 } from './inbox';
+export {
+  diffSalesConditions,
+  findSalesConditionInForce,
+  getSalesConditionByVersion,
+  getSalesConditionInForce,
+  IllustrativeSalesConditionRejectedError,
+  listSalesConditionAudit,
+  listSalesConditions,
+  NoSalesConditionInForceError,
+  publishSalesCondition,
+  SALES_CONDITION_ENTITY,
+  SalesConditionTimelineError,
+  type LoadSalesConditionOptions,
+  type PublishSalesConditionOptions,
+  type PublishSalesConditionResult,
+  type StoredSalesCondition,
+} from './sales-conditions/repository';
 export { loadCatalog, seedDatabase, type Catalog, type SeedSummary } from './seed';
 export {
   buildSimulationInput,
