@@ -108,6 +108,14 @@ export {
 } from './users';
 export { loadCatalog, seedDatabase, type Catalog, type SeedSummary } from './seed';
 export {
+  DEFAULT_DEMO_ADMIN_PASSWORD,
+  loadElevareCatalog,
+  seedElevare,
+  type ElevareCatalog,
+  type ElevareSeedSummary,
+  type SeedElevareOptions,
+} from './seed-elevare';
+export {
   buildSimulationInput,
   isSimulationDataError,
   MissingSimulationDataError,
