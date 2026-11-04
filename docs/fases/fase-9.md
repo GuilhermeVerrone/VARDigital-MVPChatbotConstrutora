@@ -13,11 +13,10 @@
 
 ## Pendente — exige o aparelho
 
-### §3.1 Ambiente Docker
-Não rebuildei o ambiente local para não mexer nos containers em uso. Passos:
-1. `infra/scripts/db-setup.sh`
-2. `docker compose up -d --build bot` (em `infra/`)
-3. Trocar os telefones dos corretores do seed (DDD 00) e incluí-los em `ALLOWED_PHONES`.
+### §3.1 Ambiente Docker — feito em 2026-11-04, falta só os corretores
+- `infra/scripts/db-setup.sh`: todas as migrations aplicadas (incl. handoff/exclusão e tolerância da parcela) e seed idempotente sem mudar os parâmetros (`2026-10-ILUSTRATIVO-v1`).
+- `docker compose up -d --build bot`: container recriado, `healthy`, log "bot pronto" (sessão `piloto`, retenção 180 dias, TLS).
+- **Falta:** os 2 corretores no banco ainda são fictícios (DDD 00). Trocar pelos telefones reais e incluí-los em `ALLOWED_PHONES` no `infra/.env`.
 
 ### Testes no WhatsApp real (número dedicado)
 Registrar cada resultado com print ou log.
