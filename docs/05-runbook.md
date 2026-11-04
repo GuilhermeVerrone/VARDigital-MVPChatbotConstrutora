@@ -30,9 +30,9 @@ Consultas no banco: `docker compose exec bot-db psql -U bot -d bot`.
 
 **Mensagem do lead não chegou.** O WA-AKG tenta o webhook uma vez só (timeout 10 s). Se o bot estava fora do ar, a mensagem se perdeu: peça ao lead para reenviar. Confira `processed_messages` pelo `external_id`.
 
-**Mensagem `DEAD`.** `last_error` diz o motivo (já mascarado). Corrigida a causa: `update processed_messages set status='PENDING', attempts=0, next_attempt_at=now(), last_error=null where id='...';`. Se for dado inválido, deixe como está e fale com o lead.
+**Mensagem `DEAD`.** `last_error` diz o motivo (já mascarado). Corrigida a causa: `update processed_messages set status='PENDING', attempts=0, available_at=now(), locked_until=null, last_error=null where id='...';`. Se for dado inválido, deixe como está e fale com o lead.
 
-**Corretor não recebeu o card/PDF.** `delivery_jobs` com `PENDING` e `attempts` subindo = reenviando com espera; `DEAD` = esgotou (8 tentativas). Causas típicas: telefone do corretor fora de `ALLOWED_PHONES` ou sessão caída. Para reenviar: mesmo `update` acima na tabela `delivery_jobs`.
+**Corretor não recebeu o card/PDF.** `delivery_jobs` com `PENDING` e `attempts` subindo = reenviando com espera; `DEAD` = esgotou (8 tentativas). Causas típicas: telefone do corretor fora de `ALLOWED_PHONES` ou sessão caída. Para reenviar: o mesmo `update` na tabela `delivery_jobs`.
 
 **Lead em rajada ou colando texto enorme.** O bot descarta acima de `RATE_LIMIT_PER_MIN` (30) mensagens por minuto por conversa e corta textos acima de `MAX_TEXT_CHARS` (2000). Aparece como `limite de mensagens por conversa excedido` no log.
 
