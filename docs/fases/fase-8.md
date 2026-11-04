@@ -55,7 +55,7 @@ STATUS: PASS (testes automatizados) — o piloto com WhatsApp real ainda não fo
 ## Não verificado
 
 - **Nada foi exercitado com o WhatsApp real nesta fase**, nem o piloto com número dedicado e leads com opt-in (critério de aceite da fase): o checklist está verde só nos itens que testes automatizados conseguem provar.
-- O ajuste de qualidade das mensagens anotado em `ajustes.txt` (botões de resposta rápida em perguntas sim/não, texto da pergunta de parcela, "não" não entendido, tom menos robotizado) **não foi tratado** nesta fase; recomendo fazê-lo antes de abrir o piloto.
+- Itens do `ajustes.txt`: **2** (pergunta da parcela) e **3** ("não" não entendido) já estavam resolvidos desde 2026-10-30 (commits `c3f629d` e `2393979`, com testes em `machine.test.ts`); esta seção dizia o contrário por engano (corrigido na Fase 9, [06-check §3.5](../06-check-projeto.md)). Seguem abertos o **item 1** (botões de resposta rápida, depende do teste no aparelho da Fase 9) e o **item 4** (tom menos robotizado).
 - Comportamento sob carga real (várias conversas simultâneas com o Ollama): só o limite por conversa foi testado.
 
 ## Como validar
