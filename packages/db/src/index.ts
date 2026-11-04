@@ -115,6 +115,7 @@ export {
   type ElevareSeedSummary,
   type SeedElevareOptions,
 } from './seed-elevare';
+export { DemoResetRefusedError, resetDemo, type DemoResetOptions, type DemoResetSummary } from './demo-reset';
 export {
   buildSimulationInput,
   isSimulationDataError,
