@@ -394,7 +394,7 @@ describe('queda no meio do cálculo', () => {
 });
 
 describe('quando não dá para simular', () => {
-  it('sem unidade disponível para a tipologia: oferece o corretor (handoff), sem números inventados e sem entregas', async () => {
+  it('sem unidade disponível para a tipologia: oferece o corretor (handoff), sem números inventados e sem entregas de simulação', async () => {
     const b = setup({ startWorker: false });
     await b.say('oi'); await b.say('sim');
     for (const a of answers('70 mil')) await b.say(a);
@@ -406,7 +406,8 @@ describe('quando não dá para simular', () => {
       const lead = await t.db.lead.findFirstOrThrow({ include: { conversations: true } });
       expect(lead.status).toBe('HANDOFF');
       expect(lead.conversations[0]).toMatchObject({ state: 'HANDOFF', handoff: true });
-      expect(await t.db.deliveryJob.count()).toBe(0);
+      // Só o aviso de handoff ao corretor: nenhuma entrega de simulação (CRM ou dossiê).
+      expect((await t.db.deliveryJob.findMany()).map((j) => j.kind)).toEqual(['HANDOFF_NOTIFY']);
     } finally {
       await t.sql(`update units set status = 'AVAILABLE'`);
     }

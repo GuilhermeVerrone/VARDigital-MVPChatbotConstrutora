@@ -219,12 +219,13 @@ describe('saídas', () => {
     expect((await t.db.conversation.findFirstOrThrow()).state).toBe('NAME');
   });
 
-  it('pedido de exclusão de dados fica registrado para o titular (Fase 7 executa)', async () => {
+  it('pedido de exclusão de dados pede confirmação e não apaga nada antes do "sim"', async () => {
     const b = bot();
     await b.say('oi'); await b.say('sim');
-    expect((await b.say('quero que apaguem meus dados'))[0]).toContain('pedido');
-    expect((await t.db.conversation.findFirstOrThrow()).state).toBe('LGPD_PENDING');
+    expect((await b.say('quero que apaguem meus dados'))[0]).toContain('Posso apagar tudo?');
+    expect((await t.db.conversation.findFirstOrThrow()).state).toBe('LGPD_CONFIRM');
     expect((await t.db.auditLog.findMany()).map((a) => a.action)).toContain('lgpd_request');
+    expect(await t.db.lead.count()).toBe(1);
   });
 
   it('LID sem telefone: pede o telefone ao lead', async () => {
