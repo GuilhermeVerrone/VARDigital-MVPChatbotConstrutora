@@ -49,9 +49,9 @@ describe('migrations', () => {
 
   it('banco migrado = schema.prisma (sem drift)', () => {
     const out = execFileSync(
-      `${PKG_DIR}/node_modules/.bin/prisma`,
+      `${PKG_DIR}/node_modules/.bin/prisma${process.platform === 'win32' ? '.CMD' : ''}`,
       ['migrate', 'diff', '--from-config-datasource', '--to-schema', 'prisma/schema.prisma', '--script'],
-      { cwd: PKG_DIR, env: { ...process.env, BOT_DATABASE_URL: t.url }, encoding: 'utf8', stdio: 'pipe' },
+      { cwd: PKG_DIR, env: { ...process.env, BOT_DATABASE_URL: t.url }, encoding: 'utf8', stdio: 'pipe', shell: process.platform === 'win32' },
     );
     expect(out).toContain('This is an empty migration');
   });
