@@ -28,7 +28,7 @@ Registrar cada resultado com print ou log.
 4. **Checagem de número no WA-AKG (G20)** — **existe**: `POST /api/chat/{sessão}/check` com `{"numbers":[...]}` devolve `{number, exists, jid}`. Teste: `5513981264295` → `exists:true`, `jid` `@s.whatsapp.net`; `5500900000002` → `exists:false`, `jid:null`; também aceita o JID completo. Dá para validar o telefone do formulário antes do 1º contato (Fase 13).
 
 ### Decisões que dependem dos testes
-- Botões: **decisão proposta: manter o texto numerado e não implementar `sendButtons` na Fase 12** (a mensagem interativa não chegou no aparelho testado). Reabrir só se um teste em outro aparelho mostrar o contrário.
+- Botões: **decisão final (confirmada pelo usuário em 2026-11-04): manter o texto numerado e não implementar `sendButtons` na Fase 12.** A mensagem interativa não chegou no aparelho testado e, segundo o usuário, os botões não funcionam no WA-AKG. Reabrir só se isso mudar.
 - Casamento do lead por LID ou só por telefone/código `ELV-xxxx`.
 
 ## Fora desta fase
