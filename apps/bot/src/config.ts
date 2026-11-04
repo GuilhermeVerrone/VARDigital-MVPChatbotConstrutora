@@ -30,6 +30,9 @@ const envSchema = z.object({
   CHAT_HASH_SECRET: z.string().min(16, 'CHAT_HASH_SECRET precisa de pelo menos 16 caracteres'),
   CONVERSATION_RETENTION_DAYS: z.coerce.number().positive().default(7),
   CONVERSATION_RESUME_GAP_MS: z.coerce.number().int().positive().default(6 * 60 * 60 * 1000),
+  // Retenção (LGPD): leads sem atividade há mais de N dias são apagados (0 desliga). A rotina roda a cada RETENTION_SWEEP_MS.
+  LEAD_RETENTION_DAYS: z.coerce.number().int().min(0).default(180),
+  RETENTION_SWEEP_MS: z.coerce.number().int().positive().default(6 * 60 * 60 * 1000),
   TYPING_MAX_MS: z.coerce.number().int().min(0).default(2_000),
   // Entregas ao CRM e ao corretor (Fase 6): fila de saída com nova tentativa e espera crescente.
   DELIVERY_POLL_MS: z.coerce.number().int().positive().default(1000),

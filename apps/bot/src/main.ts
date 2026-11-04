@@ -10,6 +10,7 @@ import { createDeliveryHandler } from './delivery';
 import { createDeliveryWorker } from './delivery-worker';
 import { createDependencyChecks } from './deps';
 import { createDbInbox } from './inbox';
+import { createRetention } from './retention';
 import { createOrchestrator } from './orchestrator';
 import { buildServer } from './server';
 import { createWorker } from './worker';
@@ -45,6 +46,7 @@ const handle = createOrchestrator({
   resumeGapMs: config.CONVERSATION_RESUME_GAP_MS,
   retentionMs: config.CONVERSATION_RETENTION_DAYS * 24 * 60 * 60 * 1000,
   onJobsEnqueued: () => deliveryWorker.kick(),
+  log: { warn: (o, m) => app.log.warn(o, m) },
   ...(config.LLM_ENABLED && promptsDir
     ? {
         llm: {
@@ -89,6 +91,8 @@ const deliveryWorker = createDeliveryWorker({
   pollMs: config.DELIVERY_POLL_MS,
 });
 
+const retention = createRetention({ db, days: config.LEAD_RETENTION_DAYS, intervalMs: config.RETENTION_SWEEP_MS, log: app.log });
+
 let shuttingDown = false;
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
@@ -98,6 +102,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     // Primeiro para de receber, depois deixa o worker terminar a mensagem em curso.
     void app
       .close()
+      .then(() => retention.stop())
       .then(() => worker.stop())
       .then(() => deliveryWorker.stop())
       .then(() => db.$disconnect())
@@ -110,7 +115,8 @@ app
   .then(() => {
     worker.start();
     deliveryWorker.start();
-    app.log.info({ tls: Boolean(https), session: config.WA_AKG_SESSION_ID }, 'bot pronto');
+    retention.start();
+    app.log.info({ tls: Boolean(https), session: config.WA_AKG_SESSION_ID, retentionDays: config.LEAD_RETENTION_DAYS }, 'bot pronto');
   })
   .catch((err: unknown) => {
     app.log.fatal({ err }, 'falha ao iniciar');

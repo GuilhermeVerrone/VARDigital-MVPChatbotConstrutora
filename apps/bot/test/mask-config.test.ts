@@ -32,6 +32,11 @@ describe('loadConfig', () => {
     expect(c.OLLAMA_BASE_URL).toBe('http://localhost:11434');
     expect(c.BOT_TLS_CERT_FILE).toBeUndefined();
   });
+  it('retenção: 180 dias por padrão, 0 desliga, negativo é recusado', () => {
+    expect(loadConfig(base).LEAD_RETENTION_DAYS).toBe(180);
+    expect(loadConfig({ ...base, LEAD_RETENTION_DAYS: '0' }).LEAD_RETENTION_DAYS).toBe(0);
+    expect(() => loadConfig({ ...base, LEAD_RETENTION_DAYS: '-1' })).toThrow(/configuração inválida/);
+  });
   it('aplica defaults da fila e do WA-AKG', () => {
     const c = loadConfig(base);
     expect(c).toMatchObject({ WA_AKG_SESSION_ID: 'piloto', INBOX_POLL_MS: 1000, INBOX_MAX_ATTEMPTS: 5 });
