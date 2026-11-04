@@ -26,7 +26,7 @@ export const T = {
 
   askName: 'Qual é o seu nome completo?',
   askPhoneConfirm: (phone: string) => `Posso usar este número, ${phone}, para o corretor falar com você? (sim/não)`,
-  askPhone: 'Qual o seu telefone com DDD? Pode ser assim: (13) 98126-4295',
+  askPhone: 'Qual o seu telefone com DDD? Pode ser assim: (11) 91234-5678',
   askEmail: 'Qual o seu e-mail? É opcional: se preferir pular, responda *pular*.',
   askInterest: (development: string) => ({ title: `Qual tipo de unidade do ${development} você procura?`, footer: 'Responda com o número.' }),
   askIncome: 'Para simular, qual é a renda bruta mensal da família? Pode somar a de quem vai comprar junto.',
@@ -56,7 +56,7 @@ export const T = {
   underage: 'Para financiar, é preciso ter 18 anos ou mais. Confere a data de nascimento? Ex.: 05/03/1990',
   tooOld: 'Essa data parece muito antiga. Pode conferir? Ex.: 05/03/1990',
   futureDate: 'Essa data ainda não chegou. Pode conferir? Ex.: 05/03/1990',
-  faqRedirect: 'Boa pergunta! Não tenho essa informação aqui, vou deixar anotada para o corretor responder com precisão. Vamos continuar a simulação:',
+  faqRedirect: 'Boa pergunta! Não tenho essa informação aqui; o corretor pode responder com precisão quando falar com você. Vamos continuar a simulação:',
   offTopic: 'Posso ajudar só com a simulação de financiamento. Vamos continuar:',
   textOnly: 'Por enquanto só consigo ler mensagens de texto. Pode digitar sua resposta?',
   injection: 'Não posso fazer isso. Vamos continuar a simulação:',

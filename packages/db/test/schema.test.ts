@@ -60,8 +60,8 @@ describe('migrations', () => {
 describe('garantias no banco (independem da aplicação)', () => {
   const insertSet = (version: string, from: string, to: string | null) =>
     t.sql(
-      `insert into parameter_sets (id, version, status, valid_from, valid_to, default_system, adjustment_tolerance_ratio, high_commitment_alert_ratio, informal_income_types, created_by)
-       values (gen_random_uuid(), $1, 'ILUSTRATIVO', $2, $3, 'SAC', 0.1, 0.9, '{}', 'sql')`,
+      `insert into parameter_sets (id, version, status, valid_from, valid_to, default_system, adjustment_tolerance_ratio, desired_installment_tolerance_ratio, high_commitment_alert_ratio, informal_income_types, created_by)
+       values (gen_random_uuid(), $1, 'ILUSTRATIVO', $2, $3, 'SAC', 0.1, 0.15, 0.9, '{}', 'sql')`,
       [version, from, to],
     );
 
