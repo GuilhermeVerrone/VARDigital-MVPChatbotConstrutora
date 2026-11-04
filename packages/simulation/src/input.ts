@@ -7,7 +7,7 @@ const money = z.number().finite().nonnegative();
 
 const MIN_AGE_MONTHS = 18 * 12;
 
-const proponentSchema = z.object({
+export const proponentSchema = z.object({
   birthDate: isoDate,
   grossMonthlyIncome: z.number().finite().positive(),
   incomeType: z.enum(INCOME_TYPES),
