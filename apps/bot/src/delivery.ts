@@ -2,7 +2,7 @@ import type { ChannelAdapter } from '@mvp/channel';
 import { ChannelError } from '@mvp/channel';
 import { CrmError, type CrmAdapter } from '@mvp/crm';
 import { assignBroker, loadSimulationBundle, markDelivered, scoreClassFor, setJobPayload, type Db, type DeliveryJobItem, type SimulationBundle } from '@mvp/db';
-import { buildSimulationPdf, dossierCard, pdfFileName } from '@mvp/presentation';
+import { buildSimulationPdf, dossierCard, handoffCard, pdfFileName, type HandoffHistoryEntry } from '@mvp/presentation';
 import { toView } from './view';
 
 // Entregas de saída (Fase 6): sincronizar o lead com o CRM e avisar o corretor com o dossiê e o PDF.
@@ -116,10 +116,44 @@ export function createDeliveryHandler(deps: DeliveryDeps) {
     await db.auditLog.create({ data: { actor: 'bot', entity: 'lead', entityId: b.lead.id, action: update ? 'broker_updated' : 'broker_notified', after: { brokerId: broker.id, simulationId: b.simulation.id } } });
   }
 
+  /**
+   * Handoff (RF-07): o corretor recebe quem é o lead, o histórico da conversa e o código para assumir.
+   * Vale para qualquer etapa, com ou sem simulação, e não depende do CRM.
+   */
+  async function notifyHandoff(job: DeliveryJobItem): Promise<void> {
+    if (!job.leadId) throw new PermanentJobError('job sem lead');
+    const lead = await db.lead.findUnique({ where: { id: job.leadId }, include: { _count: { select: { simulations: true } } } });
+    // O lead pode ter pedido a exclusão dos dados antes da entrega: não há mais nada a enviar.
+    if (!lead) throw new PermanentJobError('lead não existe mais (dados apagados)');
+    const conv = await db.conversation.findFirst({ where: { leadId: lead.id, handoff: true }, orderBy: { startedAt: 'desc' } });
+    if (!conv?.handoffCode) throw new PermanentJobError('conversa sem código de handoff');
+    const ctx = conv.context as { data?: { phone?: string; typology?: string; email?: string | null } } | null;
+    const phone = lead.phone ?? ctx?.data?.phone ?? null;
+    const broker = await assignBroker(db, lead.id, { phone });
+    if (!broker) throw new Error('nenhum corretor ativo para receber o lead');
+
+    const history = (Array.isArray(conv.history) ? conv.history : []) as unknown as HandoffHistoryEntry[];
+    await channel.sendText(
+      jidOf(broker.phone),
+      handoffCard({
+        code: conv.handoffCode,
+        name: lead.name,
+        phone,
+        email: lead.email,
+        interest: ctx?.data?.typology ?? null,
+        hasSimulation: lead._count.simulations > 0,
+        requestedAt: conv.handoffAt ?? new Date(),
+        history,
+      }),
+    );
+    await db.auditLog.create({ data: { actor: 'bot', entity: 'lead', entityId: lead.id, action: 'handoff_notified', after: { brokerId: broker.id } } });
+  }
+
   return async function handle(job: DeliveryJobItem): Promise<void> {
     switch (job.kind) {
       case 'CRM_SYNC': return syncCrm(job);
       case 'BROKER_NOTIFY': return notifyBroker(job);
+      case 'HANDOFF_NOTIFY': return notifyHandoff(job);
     }
   };
 }

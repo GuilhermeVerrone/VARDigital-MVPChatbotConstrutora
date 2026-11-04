@@ -1,16 +1,18 @@
 import { createHmac } from 'node:crypto';
-import type { ChannelAdapter, InboundMessage } from '@mvp/channel';
+import { canonicalPhone, type ChannelAdapter, type InboundMessage } from '@mvp/channel';
 import {
   applyInterpretation, CONSENT_TEXT_VERSION, enterResult, failSimulation, handleNonText, initialSnapshot, interpretStep, questionFor,
-  replyPreview, T, withResume,
+  replyPreview, resumeAfterHandoff, T, withResume,
   type Collected, type Effect, type FlowEnv, type Reply, type Snapshot, type StepResult,
 } from '@mvp/conversation';
 import {
-  deleteSession, isSimulationDataError, listActiveTypologies, loadChat, loadSimulationBundle, MissingSimulationDataError, pickUnitForTypology,
-  runAndRecordSimulation, saveSession, saveTurn, scoreClassFor, startConversation, todayIso,
-  type ChatIdentity, type Db, type LoadedChat, type TurnWrites,
+  deleteSession, eraseLead, findReleasableHandoff, isSimulationDataError, listActiveTypologies, listOpenHandoffs, loadChat, loadSimulationBundle,
+  MissingSimulationDataError, pickUnitForTypology, releaseHandoff, runAndRecordSimulation, saveSession, saveTurn, scoreClassFor, startConversation,
+  takeHandoff, todayIso,
+  type Broker, type ChatIdentity, type Db, type LoadedChat, type TurnWrites,
 } from '@mvp/db';
-import { buildSimulationPdf, pdfFileName, resultMessages } from '@mvp/presentation';
+import { buildSimulationPdf, dateTimeBr, pdfFileName, phoneBr, resultMessages } from '@mvp/presentation';
+import { B, parseBrokerCommand, type BrokerCommand } from './broker-commands';
 import { toView } from './view';
 import type { InterpretDeps } from '@mvp/llm';
 import { parseCommand, parseYesNo } from '@mvp/parsers';
@@ -31,6 +33,8 @@ export interface OrchestratorOptions {
   retentionMs?: number;
   /** Chamado depois de gravar entregas novas (CRM, corretor): acorda o worker de entregas. */
   onJobsEnqueued?: () => void;
+  /** Avisos operacionais (sem dado pessoal). */
+  log?: { warn(obj: object, msg: string): void };
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -66,12 +70,23 @@ function lastActivity(snap: Snapshot, fallback: Date): number {
 
 const phoneOf = (msg: InboundMessage): string | null => msg.phone;
 
-function toWrites(effects: Effect[], data: Collected): TurnWrites {
-  const w: TurnWrites = {};
+interface TurnContext {
+  conversationId: string;
+  leadId: string;
+  /** Momento da mensagem (ISO). */
+  at: string;
+}
+
+function toWrites(effects: Effect[], data: Collected, turn: TurnContext): TurnWrites {
+  const w: TurnWrites = { at: new Date(turn.at) };
   for (const e of effects) {
     if (e.type === 'set_lead') w.lead = { ...w.lead, ...e.fields };
     else if (e.type === 'lead_status') w.status = e.status;
-    else if (e.type === 'handoff') w.handoff = true;
+    else if (e.type === 'handoff') {
+      w.handoff = true;
+      // Avisar o corretor é uma entrega da fila, gravada junto com o estado: o aviso não se perde se o processo cair.
+      (w.jobs ??= []).push({ kind: 'HANDOFF_NOTIFY', leadId: turn.leadId, dedupeKey: `HANDOFF_NOTIFY:${turn.conversationId}:${turn.at}` });
+    }
     else if (e.type === 'audit') (w.audit ??= []).push(e.action);
     else if (e.type === 'collected') {
       w.profile = {
@@ -192,7 +207,7 @@ export function createOrchestrator(opts: OrchestratorOptions) {
       // Dado que falta ou parâmetro fora de vigência não se resolve repetindo: oferece o corretor.
       if (!isSimulationDataError(err)) throw err;
       result = failSimulation(snap, at);
-      writes = toWrites(result.effects, result.snapshot.data);
+      writes = toWrites(result.effects, result.snapshot.data, { ...chat, at });
     }
     await saveTurn(db, { conversationId: chat.conversationId, leadId: chat.leadId, state: result.snapshot.state, ...persistable(result.snapshot), writes });
     if (writes.jobs?.length) opts.onJobsEnqueued?.();
@@ -256,7 +271,7 @@ export function createOrchestrator(opts: OrchestratorOptions) {
       history: replies.map((r) => ({ role: 'bot' as const, text: replyText(r), at: at.toISOString() })),
     };
     const ids = await startConversation(db, {
-      ...who, textVersion: CONSENT_TEXT_VERSION, state: snap.state, at, ...persistable(snap),
+      ...who, textVersion: CONSENT_TEXT_VERSION, textSnapshot: T.greetingAndConsent(env.developmentName), state: snap.state, at, ...persistable(snap),
     });
     await flush(ids, snap, msg.chatId);
   }
@@ -301,18 +316,98 @@ export function createOrchestrator(opts: OrchestratorOptions) {
       if (gap > resumeGap && wasQuestion && it.kind !== 'command') result = withResume(result, env, snap);
     }
 
+    // O lead confirmou a exclusão: nada do turno é gravado (a conversa deixa de existir).
+    if (result.effects.some((e) => e.type === 'erase')) return eraseSubject(msg, chat, result.replies);
+
+    const writes = toWrites(result.effects, result.snapshot.data, { ...chat, at: meta.at });
     await saveTurn(db, {
       conversationId: chat.conversationId, leadId: chat.leadId, state: result.snapshot.state,
-      ...persistable(result.snapshot), writes: toWrites(result.effects, result.snapshot.data),
+      ...persistable(result.snapshot), writes,
     });
+    if (writes.jobs?.length) opts.onJobsEnqueued?.();
     await flush(chat, result.snapshot, msg.chatId);
 
     if (result.snapshot.state === 'SIMULATING') await finishSimulation(chat, result.snapshot, env, msg.chatId);
   }
 
+  // ---------- exclusão do titular (Fase 7) ----------
+
+  /**
+   * Apaga tudo do lead (nosso banco; o histórico no WA-AKG fica numa pendência para o script de
+   * limpeza), confirma a ele e avisa o corretor que já recebeu o resumo. A confirmação é
+   * best-effort: os dados já foram, então um erro de envio não pode desfazer nem repetir a exclusão.
+   */
+  async function eraseSubject(msg: InboundMessage, chat: ConversationChat, replies: Reply[]): Promise<void> {
+    const lead = await db.lead.findUnique({ where: { id: chat.leadId }, include: { broker: true } });
+    const brokerKnows =
+      lead?.broker != null &&
+      (await db.deliveryJob.count({
+        where: { status: 'DONE', kind: { in: ['BROKER_NOTIFY', 'HANDOFF_NOTIFY'] }, OR: [{ leadId: chat.leadId }, { simulation: { leadId: chat.leadId } }] },
+      })) > 0;
+    const notice = brokerKnows ? { to: `${lead.broker!.phone}@s.whatsapp.net`, text: B.erasureNotice(lead.name, lead.phone ? phoneBr(lead.phone) : null) } : null;
+
+    await eraseLead(db, chat.leadId, { reason: 'titular', actor: 'bot', now: now(), chatHash: hashOf(msg) });
+
+    for (const r of replies) await bestEffort(send(msg.chatId, r));
+    await bestEffort(channel.setPresence(msg.chatId, 'paused'));
+    if (notice) {
+      await channel.sendText(notice.to, notice.text).catch((err: unknown) =>
+        opts.log?.warn({ error: err instanceof Error ? err.message : String(err) }, 'não consegui avisar o corretor da exclusão de dados; avisar manualmente'),
+      );
+    }
+  }
+
+  // ---------- comandos do corretor (Fase 7) ----------
+
+  async function brokerByPhone(phone: string): Promise<Broker | null> {
+    const key = canonicalPhone(phone);
+    return (await db.broker.findMany({ where: { active: true } })).find((b) => canonicalPhone(b.phone) === key) ?? null;
+  }
+
+  async function brokerCommand(msg: InboundMessage, broker: Broker, cmd: BrokerCommand): Promise<void> {
+    const reply = async (text: string) => {
+      await send(msg.chatId, { text });
+      await bestEffort(channel.setPresence(msg.chatId, 'paused'));
+    };
+
+    if (cmd.kind === 'list') {
+      const open = await listOpenHandoffs(db, broker.id);
+      if (open.length === 0) return reply(B.noOpen);
+      return reply([B.openHeader, ...open.map((h) => B.openLine(h.code, h.name, h.takenByMe, h.since ? dateTimeBr(h.since) : null))].join('\n'));
+    }
+
+    if (cmd.kind === 'take') {
+      const r = await takeHandoff(db, cmd.code, broker.id, now());
+      if (!r.ok) return reply(r.reason === 'not_found' ? B.notFound : r.reason === 'not_waiting' ? B.notWaiting : B.takenByOther(r.takenByName ?? 'outro corretor'));
+      return reply(r.alreadyYours ? B.alreadyYours(cmd.code) : B.taken(cmd.code, r.name, r.phone ? phoneBr(r.phone) : null));
+    }
+
+    const found = await findReleasableHandoff(db, cmd.code, broker.id);
+    if (!found.ok) return reply(found.reason === 'not_found' ? B.notFound : found.reason === 'not_waiting' ? B.notWaiting : B.notYours);
+    const snap = restore({ kind: 'conversation', ...found, leadStatus: 'HANDOFF', handoff: true, updatedAt: now() });
+    const env = { ...(await envFor(msg)), channelPhone: null };
+    const { snapshot } = resumeAfterHandoff(snap, env, now().toISOString());
+    await releaseHandoff(db, {
+      conversationId: found.conversationId, leadId: found.leadId, brokerId: broker.id, state: snapshot.state, ...persistable(snapshot),
+      leadStatus: snapshot.simulationId ? 'DELIVERED' : 'IN_PROGRESS', at: now(),
+    });
+    if (!found.chatId) return reply(B.releasedNoChat(cmd.code));
+    await flush({ conversationId: found.conversationId, leadId: found.leadId }, snapshot, found.chatId);
+    return reply(B.released(cmd.code));
+  }
+
   const hashOf = (msg: InboundMessage) => createHmac('sha256', opts.hashSecret).update(msg.chatId).digest('hex');
 
   return async function handle(msg: InboundMessage): Promise<void> {
+    // Mensagem de um corretor com um comando dele (assumir/devolver/pendentes): não é conversa de lead.
+    if (msg.type === 'text' && msg.text && msg.phone) {
+      const cmd = parseBrokerCommand(msg.text);
+      const broker = cmd ? await brokerByPhone(msg.phone) : null;
+      if (cmd && broker) {
+        await bestEffort(channel.markRead(msg.chatId, [msg.externalId]));
+        return brokerCommand(msg, broker, cmd);
+      }
+    }
     const who: ChatIdentity = { chatHash: hashOf(msg), chatId: msg.chatId, phone: phoneOf(msg) };
     const [loaded, env] = await Promise.all([loadChat(db, who), envFor(msg)]);
     await bestEffort(channel.markRead(msg.chatId, [msg.externalId]));
