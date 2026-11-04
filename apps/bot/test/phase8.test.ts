@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { canonicalPhone, type ChannelAdapter, type InboundMessage } from '@mvp/channel';
+import { type ChannelAdapter, type InboundMessage } from '@mvp/channel';
 import { SimulatedCrm } from '@mvp/crm';
-import { listPendingErasures, seedDatabase } from '@mvp/db';
+import { seedDatabase } from '@mvp/db';
 import { createTestDb, type TestDb } from '../../../packages/db/test/db';
 import { createDeliveryHandler } from '../src/delivery';
 import { createDeliveryWorker } from '../src/delivery-worker';
@@ -84,8 +84,6 @@ async function toResult(b: Bot) {
   for (const a of answers('70 mil')) await b.say(a);
   await b.say('sim'); // confirma os dados: calcula e apresenta
 }
-const brokerJid = (b: Bot) => b.toBrokers()[0]!.to;
-const brokerPhone = (jid: string) => jid.split('@')[0]!;
 
 
 const conv = () => t.db.conversation.findFirstOrThrow();
