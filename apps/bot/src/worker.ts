@@ -60,6 +60,7 @@ export function createWorker(opts: WorkerOptions): Worker {
     const { id, attempts, message } = claimed;
     const ctx = { messageId: message?.externalId, chat: maskJid(message?.chatId), attempt: attempts };
 
+    const started = performance.now();
     try {
       await opts.handle(message);
     } catch (err) {
@@ -77,7 +78,7 @@ export function createWorker(opts: WorkerOptions): Worker {
     }
 
     await opts.inbox.complete(id);
-    opts.log.info(ctx, 'mensagem processada');
+    opts.log.info({ ...ctx, durationMs: Math.round(performance.now() - started) }, 'mensagem processada');
     return true;
   }
 

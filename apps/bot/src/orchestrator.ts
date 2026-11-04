@@ -34,8 +34,8 @@ export interface OrchestratorOptions {
   retentionMs?: number;
   /** Chamado depois de gravar entregas novas (CRM, corretor): acorda o worker de entregas. */
   onJobsEnqueued?: () => void;
-  /** Avisos operacionais (sem dado pessoal). */
-  log?: { warn(obj: object, msg: string): void };
+  /** Log operacional (sem dado pessoal): avisos e um registro por turno de conversa. */
+  log?: { warn(obj: object, msg: string): void; info?(obj: object, msg: string): void };
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -211,6 +211,10 @@ export function createOrchestrator(opts: OrchestratorOptions) {
       writes = toWrites(result.effects, result.snapshot.data, { ...chat, at });
     }
     await saveTurn(db, { conversationId: chat.conversationId, leadId: chat.leadId, state: result.snapshot.state, ...persistable(result.snapshot), writes });
+    opts.log?.info?.(
+      { conversationId: chat.conversationId, leadId: chat.leadId, from: snap.state, to: result.snapshot.state, jobs: writes.jobs?.length ?? 0, ok: result.snapshot.state !== 'HANDOFF' },
+      'simulação concluída',
+    );
     if (writes.jobs?.length) opts.onJobsEnqueued?.();
     await flush(chat, result.snapshot, chatId);
     return result.snapshot;
@@ -325,6 +329,15 @@ export function createOrchestrator(opts: OrchestratorOptions) {
       conversationId: chat.conversationId, leadId: chat.leadId, state: result.snapshot.state,
       ...persistable(result.snapshot), writes,
     });
+    // Um registro por turno, só com ids e estados: dá para reconstruir a conversa sem ler mensagem nenhuma.
+    opts.log?.info?.(
+      {
+        conversationId: chat.conversationId, leadId: chat.leadId, messageId: msg.externalId, msgType: msg.type,
+        from: snap.state, to: result.snapshot.state, replies: result.replies.length, jobs: writes.jobs?.length ?? 0,
+        handoff: writes.handoff === true, ...(writes.audit?.length ? { audit: writes.audit } : {}),
+      },
+      'turno da conversa',
+    );
     if (writes.jobs?.length) opts.onJobsEnqueued?.();
     await flush(chat, result.snapshot, msg.chatId);
 

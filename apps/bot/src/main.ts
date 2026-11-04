@@ -46,7 +46,7 @@ const handle = createOrchestrator({
   resumeGapMs: config.CONVERSATION_RESUME_GAP_MS,
   retentionMs: config.CONVERSATION_RETENTION_DAYS * 24 * 60 * 60 * 1000,
   onJobsEnqueued: () => deliveryWorker.kick(),
-  log: { warn: (o, m) => app.log.warn(o, m) },
+  log: { warn: (o, m) => app.log.warn(o, m), info: (o, m) => app.log.info(o, m) },
   ...(config.LLM_ENABLED && promptsDir
     ? {
         llm: {
