@@ -1,7 +1,7 @@
 # V2 · 04 — Plano faseado
 
 Regra: uma fase por vez. Só avança com o critério de aceite verde e a aprovação do usuário. As fases continuam a numeração do MVP. Os relatórios ficam em `docs/fases/fase-N.md`.
-Stack nova: Next.js (App Router) + Tailwind + shadcn/ui, Playwright. O resto segue igual (Node/TS, Fastify, Prisma, Vitest, Zod, Ollama, WA-AKG).
+Stack nova: Next.js (App Router) + Tailwind + shadcn/ui, Playwright, **API da Anthropic** para o LLM (D13). O resto segue igual (Node/TS, Fastify, Prisma, Vitest, Zod, WA-AKG). O Ollama vira perfil opcional do compose. Alvo de execução: VPS de 4 GB de RAM (D14).
 Estrutura alvo: + `apps/site`, `apps/painel`, `packages/ui`. Os pacotes existentes evoluem.
 
 ## Fase 9 — Fechar o MVP e testar os riscos no aparelho
@@ -54,6 +54,23 @@ Estrutura alvo: + `apps/site`, `apps/painel`, `packages/ui`. Os pacotes existent
 - `prisma migrate diff` vazio.
 - `demo-reset` volta ao estado inicial de forma idempotente.
 
+## Fase 11b — LLM na Anthropic e stack enxuta para VPS barata
+**Entrega:**
+- `AnthropicClient` ao lado do `OllamaClient` (mesma interface `LlmClient`), com saída JSON validada por Zod, timeout, retry e limite de chamadas por conversa. Escolha por `LLM_PROVIDER=anthropic|ollama` e `LLM_MODEL` (padrão: Haiku 5.5). Chave só em `.env`.
+- **Minimização de dados:** a requisição leva só o texto da resposta e a definição do campo, sem nome, telefone nem e-mail, e com máscara. O conteúdo não vai para os logs.
+- Prompt `extraction.v3` (já com os campos `paymentMode`, `acceptsBalloons` e `cashNow`) e nova rodada da bateria de `packages/llm/eval`, registrando acerto, injeção, latência e custo por 1.000 turnos.
+- Compose: Ollama passa para o perfil `ollama` (desligado por padrão), `mem_limit` por container, MySQL do WA-AKG com buffer reduzido, script de swap, checks de dependência pelo provedor configurado.
+- **Medição de memória:** `docker stats` com a stack padrão sob carga (conversas simuladas), em máquina de 4 GB ou limitada a isso.
+- Texto provisório de consentimento e privacidade citando a Anthropic (`RASCUNHO`).
+
+**Aceite:**
+- Bateria com a Anthropic ≥ resultado da Fase 4 (LLM ≥ 85% e injeção 100% pelo pipeline).
+- Teste que captura o corpo da requisição e confirma que não há nome, telefone nem e-mail.
+- Sem chave ou com a API fora do ar, o bot segue só com os parsers, repergunta e o `/health` acusa o LLM degradado.
+- Stack padrão sobe sem Ollama e fica em ≤ 2,5 GB de RAM medidos; o resultado vai para `docs/fases/fase-11b.md`, com a decisão sobre juntar os bancos (D5) se a medição pedir.
+
+**Depende de:** Fase 11 (para medir a stack já com site e painel, a medição final é refeita na Fase 16).
+
 ## Fase 12 — Conversa v2
 **Entrega:**
 - Estados novos:
@@ -66,7 +83,7 @@ Estrutura alvo: + `apps/site`, `apps/painel`, `packages/ui`. Os pacotes existent
 - `sendButtons` no `ChannelAdapter`, se a Fase 9 aprovar.
 - Casamento do lead por telefone ou código `ELV-xxxx`.
 - Dossiê, PDF, CRM simulado e card do corretor com o modo e o plano da entrada.
-- Prompt `extraction.v3` com a suíte de regressão.
+- Suíte de regressão do `extraction.v3` (criado na Fase 11b) estendida com casos dos 3 modos de pagamento.
 
 **Aceite:**
 - Testes da máquina de estados para os 3 modos ponta a ponta, com canal falso.
@@ -137,7 +154,8 @@ Estrutura alvo: + `apps/site`, `apps/painel`, `packages/ui`. Os pacotes existent
 **Entrega:**
 - Playwright ponta a ponta: site → formulário → canal falso → bot → painel (lead com plano). Roteiros dos 3 modos.
 - Revisão de segurança (`/security-review`) e correções. Headers e CSP. Backup do banco.
-- Deploy na VPS: Compose + Caddy + domínio + TLS. Variáveis em `.env` e runbook v2.
+- Deploy na VPS de 4 GB (D14): Compose + Caddy + domínio + TLS, imagens vindas de um registry, limites de memória e swap. Variáveis em `.env` e runbook v2.
+- **Medição final de memória e CPU** com a stack completa (site, painel, bot, WA-AKG, bancos) sob a carga da demo, registrada no relatório.
 - **Roteiro de demonstração** para o cliente (personas prontas para cada modo, ordem das telas, plano B pelo simulador se o WhatsApp falhar).
 - `demo-reset` antes de cada apresentação.
 
@@ -147,14 +165,16 @@ Estrutura alvo: + `apps/site`, `apps/painel`, `packages/ui`. Os pacotes existent
 - Demo ensaiada do começo ao fim no ambiente publicado, nos dois caminhos (WhatsApp real e simulador).
 
 ## Ordem e dependências
-`9 ∥ 10 → 11 → 12 → (13 ∥ 14) → 15 → 16`
+`9 ∥ 10 → 11 → 11b → 12 → (13 ∥ 14) → 15 → 16`
 
 - A 10 independe de canal e de banco.
+- A 11b vem antes da 12 porque o prompt `extraction.v3` e o provedor de LLM definem como os testes da conversa v2 rodam.
 - A 13 e a 14 só dependem da 11 (e a 13 também da 12, para o 1º contato).
 - A 15 depende da 12 (fluxo lendo o `FlowConfig`) e da 14 (base do painel).
 
 ## Pendências externas (não bloqueiam as Fases 9–11)
 - Regras reais da entrada parcelada da construtora (D9): % de entrada, ato, máximo de parcelas, reforços, INCC e juros, limite de comprometimento.
 - Texto jurídico do consentimento web e do opt-in.
-- Domínio e VPS para a demo (D12).
+- Domínio e VPS para a demo (D12, D14).
+- Chave da API da Anthropic para o bot (a partir da Fase 11b) e confirmação dos termos de retenção e treinamento da conta.
 - Fotos e materiais reais dos empreendimentos (se houver; senão, ficam os SVG atuais).

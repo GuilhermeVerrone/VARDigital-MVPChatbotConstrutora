@@ -11,6 +11,10 @@ Data: 2026-11-04. Decisões aprovadas pelo usuário em 2026-11-04 (todas conform
 | D10 | Estimativa do financiamento do saldo **opcional**, liga e desliga no painel. |
 | D11 | **Editor de etapas** (textos, botões, etapas opcionais, versões), sem construtor visual livre. |
 | D12 | Demo em **VPS com Docker Compose + domínio + TLS**. |
+| D13 | **LLM na API da Anthropic** (modelo pequeno, Haiku 5.5 por padrão), no lugar do Ollama local. **Substitui a D3.** O `LlmClient` já é uma interface; o Ollama fica como perfil opcional do compose, desligado por padrão. Parsers continuam primeiro: o LLM só entra no fallback e no FAQ. |
+| D14 | **VPS barata**: alvo de 2 vCPU, 4 GB de RAM e 40 GB de disco (estimativa de ~1,6 a 2 GB em uso, a medir). Limites de memória por container, swap, build das imagens fora da VPS. Juntar os dois bancos Postgres (mudaria a D5) **não está aprovado**: fica como opção a decidir se a medição pedir. |
+
+D13 e D14 foram aprovadas no mesmo dia, depois das demais.
 
 ## 1. Impacto no spec.md
 
@@ -113,13 +117,21 @@ Migrations aditivas. O seed troca o "Residencial Exemplo" pelos **3 empreendimen
 | Painel (G15) | Login obrigatório, senha com argon2, cookie httpOnly/SameSite, CSRF nativo das Server Actions, bloqueio após tentativas, papéis por rota. Corretor vê só os próprios leads. Leitura de dado pessoal no painel fica registrada na auditoria. Headers de segurança. |
 | Textos editáveis (G16) | Consentimento e avisos legais em blocos travados (só `ADMIN` edita, com nova versão). Linter de palavras proibidas ("aprovado", "garantido", "taxa de X%"). Validação das variáveis antes de publicar. |
 | Exclusão de dados | O fluxo da Fase 7 passa a cobrir `FormSubmission` e o novo campo `utm`. |
+| Dados enviados à Anthropic (D13) | A resposta do lead passa a sair do servidor. Mitigação: enviar só o texto da resposta e a definição do campo, **sem nome, telefone nem e-mail**, e mascarar dados pessoais antes do envio; não registrar o conteúdo nos logs; chave de API só em `.env`. O texto de consentimento e a política de privacidade precisam citar a Anthropic como operadora (rascunho até a revisão jurídica). Conferir os termos de retenção e de treinamento da API com a conta usada `[verificar]`. |
 
 ## 7. Impacto em infra e esforço
 
 - **Compose:** + `site` e `painel`, + Caddy como borda com TLS e domínio (D12). A rede `edge` de desenvolvimento continua só no local.
 - **Monorepo:** `apps/site` e `apps/painel` + `packages/ui` (tokens Elevare e componentes compartilhados entre os dois apps).
 - **Testes:** os unitários do motor e da conversa continuam no Vitest. Entra o Playwright para o ponta a ponta site → formulário → (canal falso) → painel.
-- **Ollama:** sem mudança. O site e o painel não usam LLM.
+- **LLM (D13):** o Ollama sai do compose padrão, que é o que mais pesa na memória (o `qwen2.5:7b` usava ~4,7 GB). Entra um `AnthropicClient` ao lado do `OllamaClient`, escolhido por `LLM_PROVIDER`. O site e o painel não usam LLM.
+- **VPS enxuta (D14):**
+  - `mem_limit` por container e MySQL do WA-AKG com buffer reduzido;
+  - swap de 2 GB;
+  - imagens construídas fora da VPS (CI ou máquina local) e baixadas de um registry;
+  - os checks de dependência do bot (`deps.ts`) passam a olhar o provedor de LLM configurado, não só o Ollama;
+  - opção de juntar site e painel num único app Next.js, a avaliar na Fase 14;
+  - uma medição real de memória com `docker stats` sob carga, registrada em relatório.
 
 **Dentro da V2:** os 3 modos de pagamento, o site com formulário, o 1º contato ativo, o painel (leads, empreendimentos/unidades, condições comerciais, financiamento simulado, editor de etapas + simulador, corretores, auditoria) e o roteiro de demo.
 **Fora da V2:** construtor visual de fluxo, CRM real, API oficial do WhatsApp, follow-up automático, métricas avançadas, distribuição com SLA, upload de planilha de preços, integração com índice INCC.
@@ -132,5 +144,8 @@ Migrations aditivas. O seed troca o "Residencial Exemplo" pelos **3 empreendimen
 | Mensagem para terceiro (G12) | Alto | *Double opt-in* + anti-spam no formulário. |
 | Regras do modo 3 erradas (G14) | Alto | Tudo parametrizado e `ILUSTRATIVO`. Validar com o financeiro na demo, sem precisar mexer no código. |
 | Vazamento pelo painel (G15) | Alto | Auth + papéis + auditoria + revisão de segurança (`/security-review`) na Fase 16. |
+| Dado pessoal enviado a API externa (D13) | Médio | Minimização e máscara antes do envio, teste que captura o corpo da requisição, aviso no consentimento. |
+| Dependência da API da Anthropic (fora do ar, chave inválida, custo) | Médio | Parsers cobrem a maior parte das respostas; sem LLM o bot continua e repergunta. Limite de chamadas por conversa. Custo medido na bateria, por 1.000 turnos. |
+| Memória insuficiente na VPS barata | Médio | Medição na Fase 11b, limites por container, swap e, se preciso, juntar os bancos (D5) ou subir para 8 GB. |
 | Escopo do painel crescer | Médio | Editor de etapas, não construtor livre (D11). Cada tela com aceite fechado. |
 | Demo depender do WhatsApp real | Médio | O simulador de conversa do painel é o plano B ao vivo. |

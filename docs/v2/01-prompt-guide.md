@@ -57,6 +57,8 @@ Ao final: pnpm check, relatório em docs/fases/fase-N.md, arquivos alterados, ri
 
 O papel do LLM continua estreito: **extrair e normalizar** a resposta e **ajudar no FAQ**. Tudo do Prompt Guide do MVP continua valendo. Mudanças:
 
+0. **Provedor (D13):** o LLM passa a ser a API da Anthropic. Nada de nome, telefone ou e-mail vai na requisição, e o conteúdo das mensagens não vai para os logs. Continua valendo "parsers primeiro": o LLM só entra quando o parser falha.
+
 1. Novo campo de extração `paymentMode` (`A_VISTA | ENTRADA_A_VISTA | ENTRADA_PARCELADA`). Exemplos de frases: "quero pagar tudo de uma vez", "tenho a entrada e financio o resto", "dá pra parcelar a entrada?".
 2. Novo campo `acceptsBalloons` (sim/não para reforços semestrais ou anuais) e `cashNow` (dinheiro disponível para o ato).
 3. Os textos do fluxo deixam de ser fixos no código e vêm do **FlowConfig** publicado no painel. O LLM nunca reescreve esses textos.

@@ -72,6 +72,8 @@ Todas as regras abaixo são **parâmetros da condição comercial do empreendime
 | D10 | Estimativa do financiamento do saldo. | **Sim, opcional** (liga e desliga no painel), sempre rotulada como "estimativa", usando o motor atual. |
 | D11 | Até onde vai o "configurar cada etapa". | **Editor de etapas**, não um construtor visual livre: editar textos e botões, ligar e desligar as etapas opcionais e publicar uma versão com prévia. |
 | D12 | Onde roda a demo para o cliente. | **VPS com Docker Compose + domínio + TLS** (Caddy). O local fica só para desenvolvimento. |
+| D13 | LLM local ou API. | **API da Anthropic** (Haiku 5.5), substituindo a D3. Ollama vira perfil opcional. Aprovada. |
+| D14 | Tamanho da VPS. | **2 vCPU, 4 GB, 40 GB**, com limites de memória e swap. Juntar os Postgres (D5) só se a medição pedir. Aprovada. |
 
 ## 5. Próximo passo
 D6–D12 **aprovadas** em 2026-11-04, todas conforme a recomendação (registro em [`03-impactos.md`](03-impactos.md)). Execução pelo [`04-plano.md`](04-plano.md), começando pelas Fases 9 e 10.
