@@ -31,7 +31,7 @@ export {
   type SimulationParameters,
 } from './params';
 export { toRates, type RateConvention, type Rates } from './rates';
-export { illustrativeParameters } from './seed';
+export { illustrativeParameters, illustrativeSalesConditions } from './seed';
 export {
   ParametersNotInForceError,
   simulate,
@@ -48,3 +48,41 @@ export {
   type Verdict,
   type VerdictReason,
 } from './simulate';
+export {
+  buildDownPaymentPlan,
+  buildUpfrontPlan,
+  type CorrectionProjection,
+  type DesiredInstallmentOutcome,
+  type DownPaymentPlan,
+  type DownPaymentPlanArgs,
+  type DownPaymentPlanResult,
+} from './down-payment-plan';
+export {
+  PaymentModeNotOfferedError,
+  SalesConditionNotInForceError,
+  simulatePayment,
+  type PaymentAlert,
+  type PaymentAlertCode,
+  type PaymentReason,
+  type PaymentResult,
+  type PaymentSuggestion,
+  type PaymentSuggestionCode,
+} from './payment';
+export {
+  InvalidPaymentInputError,
+  parsePaymentInput,
+  paymentInputSchema,
+  type FinancingProfile,
+  type PaymentInput,
+} from './payment-input';
+export {
+  CORRECTION_INDEXES,
+  InvalidSalesConditionError,
+  PAYMENT_MODES,
+  offeredModes,
+  parseSalesCondition,
+  salesConditionSchema,
+  type CorrectionIndex,
+  type PaymentMode,
+  type SalesCondition,
+} from './sales-condition';
