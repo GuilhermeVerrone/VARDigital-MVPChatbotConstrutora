@@ -72,6 +72,39 @@ export {
   type PublishSalesConditionResult,
   type StoredSalesCondition,
 } from './sales-conditions/repository';
+export {
+  createFlowDraft,
+  discardFlowDraft,
+  FLOW_CONFIG_ENTITY,
+  FlowConfigError,
+  flowConfigContentSchema,
+  getPublishedFlowConfig,
+  listFlowConfigs,
+  publishFlowConfig,
+  updateFlowDraft,
+  type CreateFlowDraftArgs,
+  type FlowConfigContent,
+  type PublishFlowArgs,
+  type StoredFlowConfig,
+} from './flow-config';
+export {
+  createUser,
+  findSessionUser,
+  hashPassword,
+  hashSessionToken,
+  InvalidPasswordError,
+  LOCK_MINUTES,
+  login,
+  logout,
+  MAX_FAILED_LOGINS,
+  MIN_PASSWORD_LENGTH,
+  purgeExpiredSessions,
+  SESSION_HOURS,
+  verifyPassword,
+  type CreateUserArgs,
+  type LoginArgs,
+  type LoginResult,
+} from './users';
 export { loadCatalog, seedDatabase, type Catalog, type SeedSummary } from './seed';
 export {
   buildSimulationInput,
