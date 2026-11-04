@@ -8,7 +8,7 @@ import { buildServer } from '../src/server';
 const secret = 'a-very-long-test-secret';
 const deps: DependencyChecks = {
   postgres: async () => ({ ok: true, latencyMs: 1 }),
-  ollama: async () => ({ ok: true, latencyMs: 1 }),
+  llm: async () => ({ ok: true, latencyMs: 1 }),
 };
 
 describe('createRateLimiter', () => {

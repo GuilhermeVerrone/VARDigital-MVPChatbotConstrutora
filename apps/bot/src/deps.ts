@@ -8,7 +8,8 @@ export interface DependencyStatus {
 
 export interface DependencyChecks {
   postgres(): Promise<DependencyStatus>;
-  ollama(): Promise<DependencyStatus>;
+  /** Provedor de LLM (Anthropic ou Ollama). Falha aqui degrada o bot, não o derruba: ele segue só com os parsers. */
+  llm(): Promise<DependencyStatus>;
 }
 
 const TIMEOUT_MS = 3000;
@@ -23,7 +24,18 @@ async function timed(fn: () => Promise<string | undefined>): Promise<DependencyS
   }
 }
 
-export function createDependencyChecks(opts: { databaseUrl: string; ollamaBaseUrl: string }): DependencyChecks {
+/** Sonda do Ollama (só quando LLM_PROVIDER=ollama). */
+export function probeOllama(baseUrl: string): () => Promise<DependencyStatus> {
+  return () =>
+    timed(async () => {
+      const res = await fetch(new URL('/api/tags', baseUrl), { signal: AbortSignal.timeout(TIMEOUT_MS) });
+      if (!res.ok) throw new Error(`ollama respondeu ${res.status}`);
+      const body = (await res.json()) as { models?: { name: string }[] };
+      return `models: ${(body.models ?? []).map((m) => m.name).join(', ') || '(nenhum)'}`;
+    });
+}
+
+export function createDependencyChecks(opts: { databaseUrl: string; llm: () => Promise<DependencyStatus> }): DependencyChecks {
   return {
     postgres: () =>
       timed(async () => {
@@ -40,12 +52,6 @@ export function createDependencyChecks(opts: { databaseUrl: string; ollamaBaseUr
           await client.end();
         }
       }),
-    ollama: () =>
-      timed(async () => {
-        const res = await fetch(new URL('/api/tags', opts.ollamaBaseUrl), { signal: AbortSignal.timeout(TIMEOUT_MS) });
-        if (!res.ok) throw new Error(`ollama respondeu ${res.status}`);
-        const body = (await res.json()) as { models?: { name: string }[] };
-        return `models: ${(body.models ?? []).map((m) => m.name).join(', ') || '(nenhum)'}`;
-      }),
+    llm: opts.llm,
   };
 }

@@ -10,7 +10,7 @@ const allowlist = createPhoneAllowlist(['5511987654321']);
 const secret = 'a-very-long-test-secret';
 const deps: DependencyChecks = {
   postgres: async () => ({ ok: true, latencyMs: 1 }),
-  ollama: async () => ({ ok: true, latencyMs: 1 }),
+  llm: async () => ({ ok: true, latencyMs: 1 }),
 };
 
 function received(over: Record<string, unknown> = {}, sessionId = 'piloto', event = 'message.received') {
