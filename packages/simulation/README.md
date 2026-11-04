@@ -32,6 +32,20 @@ const result = simulate(input, illustrativeParameters); // valida entrada e par�
 
 Erros tipados: `InvalidSimulationInputError`, `InvalidParametersError`, `ParametersNotInForceError` (data fora da vigência da tabela).
 
+## Formas de pagamento (V2)
+
+`simulatePayment(input, condition, bankParams?)` cobre os 3 modos, todos governados por uma `SalesCondition` (nenhum número de negócio no código; seed `ILUSTRATIVO` dos 3 empreendimentos em `illustrativeSalesConditions`):
+
+| Modo | O que calcula |
+|---|---|
+| `A_VISTA` | Preço com o desconto da condição. |
+| `ENTRADA_A_VISTA` | Entrada (maior entre mínima e desejada, limitada à máxima) contra o dinheiro disponível; saldo para o financiamento nas chaves. |
+| `ENTRADA_PARCELADA` | `buildDownPaymentPlan`: ato, mensais (teto de parcelas, piso do valor, juros pela Price), reforços, parcela de chaves e projeção informativa de correção. |
+
+Solver do modo 3, para a mensal caber na renda (e na parcela desejada, com folga da condição): usa reforços (se o lead aceita), depois calcula o **ato necessário**. A falta de dinheiro dentro de `adjustmentToleranceRatio` da entrada dá "viável com ajustes".
+
+A estimativa do banco sobre o saldo reaproveita `simulate()` (precisa do perfil `financing` e dos parâmetros bancários). Erros tipados: `SalesConditionNotInForceError`, `PaymentModeNotOfferedError`, `InvalidPaymentInputError`, `InvalidSalesConditionError`. Em centavos, ato + principal das mensais + reforços + chaves = entrada, sempre.
+
 ## Para o financeiro validar (sem banco, sem WhatsApp)
 
 1. **Rodar um caso:** edite `examples/lead-exemplo.json` e rode, na raiz do repositório:
