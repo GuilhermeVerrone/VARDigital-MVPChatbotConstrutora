@@ -1,4 +1,5 @@
 import type { Db } from './client';
+import { Prisma } from './generated/prisma/client';
 
 // Exclusão de dados do titular (LGPD, RF-10) e retenção. Apaga o lead e tudo que depende dele, mais o
 // que não tem chave para o lead (contato no CRM simulado, fila de entrada, sessão pré-consentimento),
@@ -42,9 +43,11 @@ export async function eraseLead(db: Db, leadId: string, opts: EraseOptions): Pro
     }
 
     const chatKeys = lead.channelJid ? [lead.channelJid] : [];
-    const messages = await tx.processedMessage.deleteMany({
-      where: { OR: [{ leadId }, ...(chatKeys.length ? [{ chatKey: { in: chatKeys } }] : [])] },
-    });
+    // A mensagem que está sendo processada agora (PROCESSING) fica, sem o endereço e sem o conteúdo:
+    // é ela que impede a reentrega do mesmo "sim" de começar uma conversa nova.
+    const mine = { OR: [{ leadId }, ...(chatKeys.length ? [{ chatKey: { in: chatKeys } }] : [])] };
+    const messages = await tx.processedMessage.deleteMany({ where: { ...mine, status: { not: 'PROCESSING' } } });
+    await tx.processedMessage.updateMany({ where: { ...mine, status: 'PROCESSING' }, data: { chatKey: 'erased', leadId: null, payload: Prisma.DbNull } });
     const crm = phones.size ? await tx.crmContact.deleteMany({ where: { phone: { in: [...phones] } } }) : { count: 0 };
     if (opts.chatHash) await tx.chatSession.deleteMany({ where: { chatHash: opts.chatHash } });
 

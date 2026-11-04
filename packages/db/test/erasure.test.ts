@@ -70,6 +70,14 @@ describe('eraseLead', () => {
     expect((await t.sql('select chat_id, done_at from erasure_tasks')).rows[0]).toMatchObject({ chat_id: null, done_at: expect.any(Date) });
   });
 
+  it('a mensagem em processamento sobrevive sem endereço nem conteúdo (a reentrega não recomeça a conversa)', async () => {
+    const { lead } = await fullLead();
+    await t.sql("update processed_messages set status = 'PROCESSING', payload = '{\"text\":\"sim\"}' where external_id like '%-1'");
+    await eraseLead(t.db, lead.id, { reason: 'titular' });
+    const rows = (await t.sql('select chat_key, lead_id, payload, status from processed_messages')).rows;
+    expect(rows).toEqual([{ chat_key: 'erased', lead_id: null, payload: null, status: 'PROCESSING' }]);
+  });
+
   it('não toca nos dados de outro lead e é idempotente', async () => {
     const a = await fullLead();
     const b = await fullLead('5513999990000', '5513999990000@s.whatsapp.net');
