@@ -1,6 +1,6 @@
 # MVP — Chatbot de pré-atendimento e simulação de financiamento (construtora)
 
-Produto: [`spec.md`](spec.md). Método e decisões: [`docs/`](docs/) (prompt guide, discovery, impactos, plano). Relatórios por fase: [`docs/fases/`](docs/fases/).
+Produto: [`spec.md`](spec.md). Método e decisões: [`docs/`](docs/) (prompt guide, discovery, impactos, plano). Relatórios por fase: [`docs/fases/`](docs/fases/). Operação do piloto: [`docs/05-runbook.md`](docs/05-runbook.md).
 
 ## Estrutura
 
