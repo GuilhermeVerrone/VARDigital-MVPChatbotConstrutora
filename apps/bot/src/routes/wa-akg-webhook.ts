@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { parseWaAkgWebhook, type PhoneAllowlist, verifyWaAkgSignature } from '@mvp/channel';
 import type { InboxWriter } from '../inbox';
 import { maskJid, safeError } from '../lib/mask';
+import type { RateLimiter } from '../lib/rate-limit';
 
 export const WA_AKG_WEBHOOK_PATH = '/webhooks/wa-akg';
 
@@ -26,6 +27,10 @@ export interface WaAkgWebhookOptions {
   /** Chamado depois de gravar uma mensagem nova (acorda o worker). */
   onEnqueued?: (() => void) | undefined;
   captureDir?: string | undefined;
+  /** Mensagens por conversa na janela; acima disso a mensagem é descartada (200, sem fila). */
+  rateLimiter?: RateLimiter | undefined;
+  /** Textos maiores que isto são cortados antes de entrar na fila (0 = sem corte). */
+  maxTextChars?: number | undefined;
 }
 
 export function waAkgWebhookRoutes(app: FastifyInstance, opts: WaAkgWebhookOptions) {
@@ -68,6 +73,15 @@ export function waAkgWebhookRoutes(app: FastifyInstance, opts: WaAkgWebhookOptio
     if (!opts.allowlist.isAllowed(parsed.message.chatId)) {
       req.log.warn({ chat: maskJid(parsed.message.chatId) }, 'remetente fora da lista de permitidos; descartado');
       return reply.code(200).send({ received: true, ignored: 'not_allowed' });
+    }
+
+    if (opts.rateLimiter && !opts.rateLimiter.allow(parsed.message.chatId)) {
+      req.log.warn({ chat: maskJid(parsed.message.chatId), messageId: parsed.message.externalId }, 'limite de mensagens por conversa excedido; descartada');
+      return reply.code(200).send({ received: true, ignored: 'rate_limited' });
+    }
+    const max = opts.maxTextChars ?? 0;
+    if (max > 0 && parsed.message.text && parsed.message.text.length > max) {
+      parsed.message = { ...parsed.message, text: parsed.message.text.slice(0, max) };
     }
 
     // Grava e responde. Se a gravação falhar, 500: o WA-AKG não reenvia (uma tentativa), então o

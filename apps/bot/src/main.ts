@@ -10,6 +10,7 @@ import { createDeliveryHandler } from './delivery';
 import { createDeliveryWorker } from './delivery-worker';
 import { createDependencyChecks } from './deps';
 import { createDbInbox } from './inbox';
+import { createRateLimiter } from './lib/rate-limit';
 import { createRetention } from './retention';
 import { createOrchestrator } from './orchestrator';
 import { buildServer } from './server';
@@ -65,6 +66,8 @@ const app = buildServer({
   onEnqueued: () => worker.kick(),
   deps: createDependencyChecks({ databaseUrl: config.BOT_DATABASE_URL, ollamaBaseUrl: config.OLLAMA_BASE_URL }),
   captureDir: config.WEBHOOK_CAPTURE_DIR,
+  rateLimiter: createRateLimiter({ max: config.RATE_LIMIT_PER_MIN, windowMs: 60_000 }),
+  maxTextChars: config.MAX_TEXT_CHARS,
   fastify: {
     ...(https ? { https } : {}),
     logger: {

@@ -2,6 +2,7 @@ import Fastify, { type FastifyServerOptions } from 'fastify';
 import type { PhoneAllowlist } from '@mvp/channel';
 import type { DependencyChecks } from './deps';
 import type { InboxWriter } from './inbox';
+import type { RateLimiter } from './lib/rate-limit';
 import { healthRoutes } from './routes/health';
 import { waAkgWebhookRoutes } from './routes/wa-akg-webhook';
 
@@ -13,6 +14,8 @@ export interface ServerOptions {
   onEnqueued?: (() => void) | undefined;
   deps: DependencyChecks;
   captureDir?: string | undefined;
+  rateLimiter?: RateLimiter | undefined;
+  maxTextChars?: number | undefined;
   fastify?: FastifyServerOptions;
 }
 
@@ -31,6 +34,8 @@ export function buildServer(opts: ServerOptions) {
       allowlist: opts.allowlist,
       onEnqueued: opts.onEnqueued,
       captureDir: opts.captureDir,
+      rateLimiter: opts.rateLimiter,
+      maxTextChars: opts.maxTextChars,
     }));
 
   return app;

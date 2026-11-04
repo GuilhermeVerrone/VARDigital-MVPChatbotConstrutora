@@ -33,6 +33,9 @@ const envSchema = z.object({
   // Retenção (LGPD): leads sem atividade há mais de N dias são apagados (0 desliga). A rotina roda a cada RETENTION_SWEEP_MS.
   LEAD_RETENTION_DAYS: z.coerce.number().int().min(0).default(180),
   RETENTION_SWEEP_MS: z.coerce.number().int().positive().default(6 * 60 * 60 * 1000),
+  // Limites de entrada: mensagens por conversa por minuto (0 desliga) e tamanho máximo do texto aceito.
+  RATE_LIMIT_PER_MIN: z.coerce.number().int().min(0).default(30),
+  MAX_TEXT_CHARS: z.coerce.number().int().min(0).default(2000),
   TYPING_MAX_MS: z.coerce.number().int().min(0).default(2_000),
   // Entregas ao CRM e ao corretor (Fase 6): fila de saída com nova tentativa e espera crescente.
   DELIVERY_POLL_MS: z.coerce.number().int().positive().default(1000),
