@@ -159,7 +159,7 @@ describe('modo 3 — entrada parcelada', () => {
 
 describe('estimativa do banco sobre o saldo', () => {
   const financing = {
-    applicant: { birthDate: '1990-05-10', grossMonthlyIncome: 9000, incomeType: 'CLT', monthlyDebts: 0, fgts: null },
+    applicant: { birthDate: '1990-05-10', grossMonthlyIncome: 9000, incomeType: 'CLT' as const, monthlyDebts: 0, fgts: null },
     coApplicant: null,
     ownsResidentialProperty: false,
     firstFinancing: true,
