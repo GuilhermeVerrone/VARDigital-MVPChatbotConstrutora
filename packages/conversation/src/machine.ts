@@ -1,5 +1,5 @@
 import { interpretReply, type FieldDef, type FieldValue, type InterpretDeps, type Interpretation } from '@mvp/llm';
-import { parseOption } from '@mvp/parsers';
+import { parseCommand, parseOption, type CommandName } from '@mvp/parsers';
 import {
   correctionOptions, fieldsFor, isAnswerState, resolveCorrectionTarget, resultOptions, STEPS, summaryLines,
   type AnswerState, type ResultChoice,
@@ -8,12 +8,24 @@ import { T } from './templates';
 import type { Collected, Effect, FlowEnv, QuestionState, Reply, Snapshot, StateName, StepResult } from './types';
 
 export const MAX_FAILURES = 3;
-const TERMINAL = new Set<StateName>(['DONE', 'HANDOFF', 'OPTED_OUT', 'LGPD_PENDING', 'SIMULATING']);
+const TERMINAL = new Set<StateName>(['DONE', 'HANDOFF', 'OPTED_OUT', 'LGPD_PENDING', 'SIMULATING', 'ERASED']);
+
+/**
+ * Nos estados finais o bot não pergunta nada, mas o lead continua podendo exercer seus direitos e
+ * pedir um corretor: apagar os dados vale em qualquer um (menos no cálculo, que dura segundos),
+ * parar de receber vale para quem ainda está sendo atendido e o corretor, para quem já terminou.
+ */
+const TERMINAL_COMMANDS: Partial<Record<StateName, readonly CommandName[]>> = {
+  DONE: ['human', 'optout', 'lgpd_request'],
+  HANDOFF: ['optout', 'lgpd_request'],
+  OPTED_OUT: ['lgpd_request'],
+  LGPD_PENDING: ['lgpd_request'],
+};
 const MAX_HISTORY = 60;
 
 export function initialSnapshot(): Snapshot {
   return {
-    state: 'NAME', data: {}, returnTo: null, failures: 0, resumeTo: null, lastInboundId: null, adjust: {}, simulationId: null, outbox: [], history: [],
+    state: 'NAME', data: {}, returnTo: null, failures: 0, resumeTo: null, lastInboundId: null, adjust: {}, simulationId: null, lgpdFrom: null, outbox: [], history: [],
   };
 }
 
@@ -46,6 +58,8 @@ export function questionFor(state: StateName, snap: Snapshot, env: FlowEnv): Rep
       return [{ list: { ...T.correctionMenu, options: correctionOptions().map((o) => o.label) } }];
     case 'HANDOFF_OFFER':
       return [text(T.handoffOffer)];
+    case 'LGPD_CONFIRM':
+      return [text(T.lgpdConfirm)];
     case 'DONE':
       return [text(T.doneAgain)];
     case 'SIMULATING':
@@ -65,6 +79,7 @@ function fieldsOf(state: QuestionState, env: FlowEnv): readonly FieldDef[] {
   switch (state) {
     case 'CONFIRM': return [{ key: 'confirmed', kind: 'boolean' }];
     case 'HANDOFF_OFFER': return [{ key: 'wantsHuman', kind: 'boolean' }];
+    case 'LGPD_CONFIRM': return [{ key: 'confirmErase', kind: 'boolean' }];
     case 'CORRECTION_MENU': return [{ key: 'item', kind: 'option', options: correctionOptions() }];
     case 'RESULT': return [{ key: 'item', kind: 'option', options: resultOptions() }];
     case 'ADJUST_DOWN': return [{ key: 'downPayment', kind: 'money' }];
@@ -83,8 +98,10 @@ export async function interpretStep(
   env: FlowEnv,
   deps: InterpretDeps,
 ): Promise<Interpretation> {
-  // Estados finais não interpretam nada (e não gastam LLM).
+  // Estados finais não interpretam nada (e não gastam LLM), só os comandos que ainda valem.
   if (TERMINAL.has(snap.state)) {
+    const cmd = parseCommand(input);
+    if (cmd && TERMINAL_COMMANDS[snap.state]?.includes(cmd.command)) return { kind: 'command', command: cmd.command, source: 'parser' };
     return { kind: 'off_topic' };
   }
   const state = snap.state as QuestionState;
@@ -156,7 +173,7 @@ function record(snap: Snapshot, meta: TurnMeta, replies: Reply[]): Snapshot {
 /** Mensagem sem texto (áudio, imagem…): não avança, não conta como erro. */
 export function handleNonText(snap: Snapshot, env: FlowEnv, meta: TurnMeta): StepResult {
   const state = snap.state;
-  const replies = isAnswerState(state) || state === 'CONFIRM' || state === 'CORRECTION_MENU' || state === 'HANDOFF_OFFER' || isResultState(state)
+  const replies = isAnswerState(state) || state === 'CONFIRM' || state === 'CORRECTION_MENU' || state === 'HANDOFF_OFFER' || state === 'LGPD_CONFIRM' || isResultState(state)
     ? withLead(T.textOnly, questionFor(state, snap, env)[0]!)
     : state === 'DONE' ? [text(T.doneAgain)] : [];
   return { snapshot: record(snap, meta, replies), replies, effects: [] };
@@ -178,15 +195,20 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
   });
   const state = snap.state;
 
-  // Estados finais
-  if (state === 'DONE') return done(snap, [text(T.doneAgain)]);
+  // Estados finais: só os comandos liberados em TERMINAL_COMMANDS passam; o resto é silêncio (ou a lembrança de que já terminou).
   if (state === 'SIMULATING') return done(snap, [text(T.stillCalculating)]);
-  if (state === 'HANDOFF' || state === 'OPTED_OUT' || state === 'LGPD_PENDING') return done(snap, []);
+  const allowed = it.kind === 'command' && TERMINAL_COMMANDS[state]?.includes(it.command);
+  if (!allowed) {
+    if (state === 'DONE') return done(snap, [text(T.doneAgain)]);
+    if (TERMINAL.has(state)) return done(snap, []);
+  }
 
   const qs = state as QuestionState;
   const again = (lead: string | null, next: Snapshot = snap) => withLead(lead, questionFor(next.state, next, env)[0]!);
   const fail = (lead: string): StepResult => {
     const failures = snap.failures + 1;
+    // Sem resposta clara sobre apagar, nada é apagado.
+    if (failures >= MAX_FAILURES && qs === 'LGPD_CONFIRM') return declineErase();
     if (failures >= MAX_FAILURES && qs !== 'HANDOFF_OFFER') {
       return done({ ...snap, state: 'HANDOFF_OFFER', failures: 0, resumeTo: qs }, [text(T.handoffOffer)]);
     }
@@ -208,7 +230,12 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
             { type: 'lead_status', status: 'OPTED_OUT' }, { type: 'audit', action: 'optout' },
           ]);
         case 'lgpd_request':
-          return done({ ...snap, state: 'LGPD_PENDING' }, [text(T.lgpd)], [{ type: 'audit', action: 'lgpd_request' }]);
+          // Apagar é irreversível: o bot confirma antes. Se o lead desistir, volta para onde estava.
+          return done(
+            { ...snap, state: 'LGPD_CONFIRM', failures: 0, lgpdFrom: qs === 'LGPD_CONFIRM' ? snap.lgpdFrom : state },
+            [text(T.lgpdConfirm)],
+            [{ type: 'audit', action: 'lgpd_request' }],
+          );
         case 'exit':
           return done(snap, [text(T.paused)]);
         case 'back': {
@@ -244,6 +271,12 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
     }
     case 'answer':
       return answer(it.fields);
+  }
+
+  function declineErase(): StepResult {
+    const back = snap.lgpdFrom ?? 'DONE';
+    const next: Snapshot = { ...snap, state: back, failures: 0, lgpdFrom: null };
+    return done(next, TERMINAL.has(back) ? [text(T.lgpdKept)] : withLead(T.lgpdKept, questionFor(back, next, env)[0]!));
   }
 
   function chooseResult(choice: ResultChoice): StepResult {
@@ -288,6 +321,10 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
       if (months < 12 || months > 600) return fail(T.termRange);
       const adjust = { ...snap.adjust, termMonths: months };
       return done({ ...snap, state: 'SIMULATING', failures: 0, adjust }, [text(T.recalculating)]);
+    }
+    if (qs === 'LGPD_CONFIRM') {
+      if (values.confirmErase === true) return done({ ...snap, state: 'ERASED', failures: 0, lgpdFrom: null }, [text(T.erased)], [{ type: 'erase' }]);
+      return declineErase();
     }
     if (qs === 'HANDOFF_OFFER') {
       if (values.wantsHuman === true) return handoff(snap);

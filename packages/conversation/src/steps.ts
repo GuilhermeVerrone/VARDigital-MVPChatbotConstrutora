@@ -51,7 +51,7 @@ const noMeansZero = (key: string) => (t: string): Values | null => (parseYesNo(t
 
 const brlAck = (key: string, label: string) => (v: Values) => T.ack(`${label} ${brl(num(v[key]))}`);
 
-export const STEPS: Record<Exclude<QuestionState, 'CONFIRM' | 'CORRECTION_MENU' | 'HANDOFF_OFFER' | 'RESULT' | 'ADJUST_DOWN' | 'ADJUST_TERM'>, Step> = {
+export const STEPS: Record<Exclude<QuestionState, 'CONFIRM' | 'CORRECTION_MENU' | 'HANDOFF_OFFER' | 'LGPD_CONFIRM' | 'RESULT' | 'ADJUST_DOWN' | 'ADJUST_TERM'>, Step> = {
   NAME: {
     fields: [{ key: 'name', kind: 'name' }],
     question: () => text(T.askName),

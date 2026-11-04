@@ -68,7 +68,12 @@ export const T = {
   handoff: 'Combinado! Vou pedir para um corretor falar com você por aqui. Enquanto isso, não vou mais enviar perguntas.',
   handoffDeclined: 'Certo, vamos tentar de novo:',
   optout: 'Entendido, não vou mais te enviar mensagens. Obrigado pela atenção!',
-  lgpd: 'Recebi o seu pedido sobre os seus dados. Nossa equipe responsável vai analisar e retornar por aqui. Não vou fazer mais perguntas enquanto isso.',
+  lgpdConfirm:
+    'Entendi: você quer que eu apague os seus dados. Isso inclui o seu cadastro, o que você me contou e as simulações, e o atendimento termina aqui. Não dá para desfazer.\n\nPosso apagar tudo? (sim/não)',
+  lgpdKept: 'Tudo bem, não apaguei nada.',
+  erased:
+    'Pronto, apaguei os seus dados do nosso sistema. Se algum corretor já tinha recebido o seu resumo, vou avisá-lo para apagar também. Se quiser simular de novo um dia, é só me chamar. 😊',
+  handoffReturned: 'O corretor me devolveu a conversa. Vamos continuar de onde paramos:',
   calculating: 'Prontinho, anotei tudo! 🙌 Já estou fazendo as contas, é rapidinho.',
   recalculating: 'Certo, vou refazer as contas com essa mudança.',
   brokerInformed: 'Já passei o seu resumo para um corretor da nossa equipe. Ele deve te chamar por aqui em breve.',

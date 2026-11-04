@@ -223,8 +223,9 @@ describe('fluxo de coleta', () => {
     await a.say('oi'); expect(a.last).toEqual([]);
 
     const b = new Chat(); await upToIncome(b); await b.say('quero que apaguem meus dados');
-    expect(b.snap.state).toBe('LGPD_PENDING');
+    expect(b.snap.state).toBe('LGPD_CONFIRM');
     expect(b.effects).toContainEqual({ type: 'audit', action: 'lgpd_request' });
+    expect(b.effects).not.toContainEqual({ type: 'erase' }); // só depois do "sim"
 
     const h = new Chat(); await h.say('Maria Silva'); await h.say('quero falar com um corretor');
     expect(h.snap.state).toBe('HANDOFF');
@@ -397,5 +398,163 @@ describe('resultado e ajustes', () => {
     expect(r.snapshot.state).toBe('HANDOFF');
     expect(r.effects).toContainEqual({ type: 'handoff' });
     expect(JSON.stringify(r.replies)).toContain('Não consegui fechar a simulação');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fase 7: handoff em qualquer etapa e exclusão do titular
+// ---------------------------------------------------------------------------
+
+/** Cada estado em que o bot pergunta algo, com as respostas que levam até ele. */
+const PATHS: Record<string, string[]> = {
+  NAME: [],
+  PHONE_CONFIRM: ['Maria da Silva'],
+  EMAIL: ['Maria da Silva', 'sim'],
+  INTEREST: ['Maria da Silva', 'sim', 'pular'],
+  INCOME: ['Maria da Silva', 'sim', 'pular', '2'],
+  INCOME_TYPE: ['Maria da Silva', 'sim', 'pular', '2', '7 mil'],
+  BIRTH: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt'],
+  DEBTS: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990'],
+  CO_ASK: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800'],
+  CO_INCOME: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'sim'],
+  CO_INCOME_TYPE: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'sim', '4 mil'],
+  CO_BIRTH: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'sim', '4 mil', '2'],
+  CO_DEBTS: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'sim', '4 mil', '2', '10/10/1992'],
+  DOWN: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'não'],
+  INSTALLMENT: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil'],
+  FGTS_ASK: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil', 'não sei'],
+  FGTS_BALANCE: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil', 'não sei', 'sim'],
+  FGTS_MONTHS: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil', 'não sei', 'sim', '15 mil'],
+  OWNS: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil', 'não sei', 'sim', '15 mil', '3 anos'],
+  FIRST: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil', 'não sei', 'sim', '15 mil', '3 anos', 'não'],
+  CONFIRM: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil', 'não sei', 'sim', '15 mil', '3 anos', 'não', 'sim'],
+  CORRECTION_MENU: ['Maria da Silva', 'sim', 'pular', '2', '7 mil', 'clt', '05/03/1990', '800', 'não', '40 mil', 'não sei', 'sim', '15 mil', '3 anos', 'não', 'sim', 'não'],
+  HANDOFF_OFFER: ['Maria da Silva', 'sim', 'pular', '2', 'blá', 'blá', 'blá'],
+  LGPD_CONFIRM: ['Maria da Silva', 'apagar meus dados'],
+};
+
+async function chatAt(state: string): Promise<Chat> {
+  const c = new Chat();
+  for (const a of PATHS[state]!) await c.say(a);
+  return c;
+}
+
+function resultChat(): Chat {
+  const c = new Chat();
+  const r = enterResult(c.snap, env, { simulationId: 'sim-1', messages: ['resultado'], brokerAlreadyNotified: false, at: '2026-10-29T12:00:00Z' });
+  c.snap = r.snapshot;
+  return c;
+}
+
+describe('handoff em todos os estados', () => {
+  it.each(Object.keys(PATHS))('"falar com corretor" em %s passa para HANDOFF, com o handoff e o histórico', async (state) => {
+    const c = await chatAt(state);
+    expect(c.snap.state, 'o caminho de teste chegou ao estado errado').toBe(state);
+    const before = c.snap.history.length;
+    c.effects = [];
+    await c.say('quero falar com um corretor');
+    expect(c.snap.state).toBe('HANDOFF');
+    expect(c.effects).toContainEqual({ type: 'handoff' });
+    expect(c.effects).toContainEqual({ type: 'lead_status', status: 'HANDOFF' });
+    expect(c.effects).toContainEqual({ type: 'audit', action: 'handoff_requested' });
+    expect(c.text).toContain('não vou mais enviar perguntas');
+    // O histórico segue na conversa (é ele que o corretor recebe) e inclui o pedido.
+    expect(c.snap.history.length).toBeGreaterThan(before);
+    expect(c.snap.history.some((h) => h.role === 'lead' && h.text === 'quero falar com um corretor')).toBe(true);
+  });
+
+  it.each(['RESULT', 'ADJUST_DOWN', 'ADJUST_TERM'])('"falar com corretor" em %s também passa para HANDOFF', async (state) => {
+    const c = resultChat();
+    if (state === 'ADJUST_DOWN') await c.say('1');
+    if (state === 'ADJUST_TERM') await c.say('2');
+    expect(c.snap.state).toBe(state);
+    await c.say('quero falar com um corretor');
+    expect(c.snap.state).toBe('HANDOFF');
+    expect(c.effects).toContainEqual({ type: 'handoff' });
+  });
+
+  it('depois de DONE o lead ainda consegue chamar o corretor', async () => {
+    const c = resultChat();
+    await c.say('4'); // está ótimo
+    expect(c.snap.state).toBe('DONE');
+    await c.say('quero falar com um corretor');
+    expect(c.snap.state).toBe('HANDOFF');
+    expect(c.effects).toContainEqual({ type: 'handoff' });
+  });
+
+  it('três respostas não entendidas oferecem o corretor e o "sim" faz o handoff', async () => {
+    const c = await chatAt('HANDOFF_OFFER');
+    await c.say('sim');
+    expect(c.snap.state).toBe('HANDOFF');
+    expect(c.effects).toContainEqual({ type: 'handoff' });
+  });
+
+  it('em HANDOFF o bot fica em silêncio, mas ainda atende "parar" e "apagar meus dados"', async () => {
+    const c = await chatAt('INCOME');
+    await c.say('quero falar com um corretor');
+    for (const msg of ['oi', 'tudo bem?', 'quero falar com um corretor', 'voltar']) {
+      await c.say(msg);
+      expect(c.snap.state).toBe('HANDOFF');
+      expect(c.last, msg).toEqual([]);
+    }
+    await c.say('apagar meus dados');
+    expect(c.snap.state).toBe('LGPD_CONFIRM');
+    expect(c.snap.lgpdFrom).toBe('HANDOFF');
+    await c.say('não');
+    expect(c.snap.state).toBe('HANDOFF');
+
+    await c.say('parar de receber mensagens');
+    expect(c.snap.state).toBe('OPTED_OUT');
+  });
+});
+
+describe('exclusão do titular (LGPD)', () => {
+  it.each(['NAME', 'INCOME', 'CONFIRM', 'CORRECTION_MENU'])('pedido em %s pede confirmação e só apaga depois do "sim"', async (state) => {
+    const c = await chatAt(state);
+    c.effects = [];
+    await c.say('quero que apaguem meus dados');
+    expect(c.snap.state).toBe('LGPD_CONFIRM');
+    expect(c.snap.lgpdFrom).toBe(state);
+    expect(c.text).toContain('Posso apagar tudo?');
+    expect(c.effects).not.toContainEqual({ type: 'erase' });
+
+    await c.say('sim');
+    expect(c.snap.state).toBe('ERASED');
+    expect(c.effects).toContainEqual({ type: 'erase' });
+    expect(c.text).toContain('apaguei');
+  });
+
+  it('desistir volta para a pergunta em que estava, sem apagar nada', async () => {
+    const c = await chatAt('INCOME');
+    await c.say('apagar meus dados');
+    await c.say('não');
+    expect(c.snap.state).toBe('INCOME');
+    expect(c.effects).not.toContainEqual({ type: 'erase' });
+    expect(c.text).toContain('não apaguei nada');
+    expect(c.text).toContain('renda');
+  });
+
+  it('resposta que não é sim nem não, três vezes seguidas, mantém os dados', async () => {
+    const c = await chatAt('LGPD_CONFIRM');
+    await c.say('talvez'); await c.say('hum'); await c.say('sei lá');
+    expect(c.snap.state).toBe('PHONE_CONFIRM'); // voltou para a pergunta em que estava
+    expect(c.effects).not.toContainEqual({ type: 'erase' });
+  });
+
+  it('vale também depois do atendimento encerrado (DONE) e para quem já pediu para parar (OPTED_OUT)', async () => {
+    const done = resultChat();
+    await done.say('4');
+    await done.say('apagar meus dados');
+    expect(done.snap).toMatchObject({ state: 'LGPD_CONFIRM', lgpdFrom: 'DONE' });
+    await done.say('não');
+    expect(done.snap.state).toBe('DONE');
+
+    const out = await chatAt('INCOME');
+    await out.say('parar de receber mensagens');
+    expect(out.snap.state).toBe('OPTED_OUT');
+    await out.say('apagar meus dados');
+    expect(out.snap.state).toBe('LGPD_CONFIRM');
+    await out.say('sim');
+    expect(out.effects).toContainEqual({ type: 'erase' });
   });
 });

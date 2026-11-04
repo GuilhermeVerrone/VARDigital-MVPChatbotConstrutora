@@ -6,7 +6,7 @@ export type QuestionState =
   | 'INCOME' | 'INCOME_TYPE' | 'BIRTH' | 'DEBTS'
   | 'CO_ASK' | 'CO_INCOME' | 'CO_INCOME_TYPE' | 'CO_BIRTH' | 'CO_DEBTS'
   | 'DOWN' | 'INSTALLMENT' | 'FGTS_ASK' | 'FGTS_BALANCE' | 'FGTS_MONTHS'
-  | 'OWNS' | 'FIRST' | 'CONFIRM' | 'CORRECTION_MENU' | 'HANDOFF_OFFER'
+  | 'OWNS' | 'FIRST' | 'CONFIRM' | 'CORRECTION_MENU' | 'HANDOFF_OFFER' | 'LGPD_CONFIRM'
   /** Depois do resultado: menu e ajustes de entrada/prazo (Fase 6). */
   | 'RESULT' | 'ADJUST_DOWN' | 'ADJUST_TERM';
 
@@ -14,7 +14,7 @@ export type QuestionState =
  * Estados em que o bot não pergunta nada. SIMULATING é transitório: o orquestrador calcula e
  * apresenta o resultado (e retoma de onde parou se o processo cair no meio).
  */
-export type TerminalState = 'DONE' | 'HANDOFF' | 'OPTED_OUT' | 'LGPD_PENDING' | 'SIMULATING';
+export type TerminalState = 'DONE' | 'HANDOFF' | 'OPTED_OUT' | 'LGPD_PENDING' | 'SIMULATING' | 'ERASED';
 export type StateName = QuestionState | TerminalState;
 
 export interface Collected {
@@ -79,6 +79,8 @@ export interface Snapshot {
   adjust: Adjust;
   /** Última simulação apresentada ao lead (id em `simulations`). */
   simulationId: string | null;
+  /** Estado em que o lead estava ao pedir a exclusão dos dados (para onde voltar se desistir). */
+  lgpdFrom: StateName | null;
   /** Respostas decididas e ainda não confirmadas como enviadas. */
   outbox: Reply[];
   history: HistoryEntry[];
@@ -98,6 +100,8 @@ export type Effect =
   | { type: 'lead_status'; status: 'HANDOFF' | 'OPTED_OUT' | 'IN_PROGRESS' | 'CLOSED' }
   | { type: 'handoff' }
   | { type: 'audit'; action: 'optout' | 'lgpd_request' | 'handoff_requested' }
+  /** O lead confirmou a exclusão: o orquestrador apaga tudo em vez de gravar o turno. */
+  | { type: 'erase' }
   /** Todos os dados coletados e confirmados: gravar o perfil financeiro. */
   | { type: 'collected' };
 
