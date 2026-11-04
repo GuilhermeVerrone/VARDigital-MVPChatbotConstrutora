@@ -87,3 +87,14 @@ docker compose down -v                # apaga também os dados (MySQL do WA-AKG,
 ```
 
 Espaço em disco: o build do WA-AKG deixa ~2 GB de cache de build; `docker builder prune` libera (atenção: apaga o cache de build de todos os projetos).
+
+## Exclusão de dados do titular (LGPD)
+
+Quando o lead confirma "apagar meus dados", o bot apaga tudo do lado dele (banco do bot, CRM simulado, fila) e deixa uma pendência para o histórico que o WA-AKG guarda no MySQL dele (o WA-AKG não tem endpoint para apagar). Para concluir:
+
+```bash
+./scripts/wa-akg-erase.sh --dry-run   # quantas limpezas estão pendentes
+./scripts/wa-akg-erase.sh             # apaga mensagens, contato e etiquetas no WA-AKG e fecha a pendência
+```
+
+Rode depois de cada pedido de exclusão (ou agende de hora em hora). Não cobre arquivos de mídia no volume do WA-AKG nem as mensagens que já estão no aparelho do número do piloto. A retenção automática de leads inativos é `LEAD_RETENTION_DAYS` (padrão 180; 0 desliga).

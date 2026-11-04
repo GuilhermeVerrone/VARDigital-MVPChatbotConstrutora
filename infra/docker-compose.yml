@@ -114,6 +114,7 @@ services:
       CHAT_HASH_SECRET: ${CHAT_HASH_SECRET:?defina em infra/.env}
       LLM_MODEL: ${LLM_MODEL:-qwen2.5:7b}
       LLM_ENABLED: ${LLM_ENABLED:-true}
+      LEAD_RETENTION_DAYS: ${LEAD_RETENTION_DAYS:-180}
       PROMPTS_DIR: /app/prompts
       WEBHOOK_CAPTURE_DIR: ${WEBHOOK_CAPTURE_DIR:-}
     extra_hosts:
