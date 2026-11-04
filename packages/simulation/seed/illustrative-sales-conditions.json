@@ -1,0 +1,68 @@
+{
+  "lumen-urban": {
+    "version": "2026-11-lumen-urban-ILUSTRATIVO-v1",
+    "status": "ILUSTRATIVO",
+    "validFrom": "2026-01-01",
+    "validTo": null,
+    "adjustmentToleranceRatio": 0.1,
+    "cash": { "enabled": true, "discountRatio": 0.08 },
+    "downPayment": { "minRatio": 0.2, "maxRatio": 0.5 },
+    "upfront": { "enabled": true },
+    "installments": {
+      "enabled": true,
+      "act": { "minRatio": 0.1, "minAmount": 5000 },
+      "monthly": { "maxCount": 36, "minAmount": 300, "monthlyInterestRate": 0 },
+      "balloons": { "intervalMonths": 6, "maxRatio": 0.3 },
+      "keysRatio": 0.05,
+      "maxIncomeCommitment": 0.3,
+      "highCommitmentAlertRatio": 0.9,
+      "desiredInstallmentToleranceRatio": 0.15,
+      "correction": { "index": "INCC", "projectedMonthlyRate": null }
+    },
+    "bankEstimate": { "enabled": true }
+  },
+  "parc-verde": {
+    "version": "2026-11-parc-verde-ILUSTRATIVO-v1",
+    "status": "ILUSTRATIVO",
+    "validFrom": "2026-01-01",
+    "validTo": null,
+    "adjustmentToleranceRatio": 0.1,
+    "cash": { "enabled": true, "discountRatio": 0.06 },
+    "downPayment": { "minRatio": 0.25, "maxRatio": 0.5 },
+    "upfront": { "enabled": true },
+    "installments": {
+      "enabled": true,
+      "act": { "minRatio": 0.1, "minAmount": 10000 },
+      "monthly": { "maxCount": 48, "minAmount": 500, "monthlyInterestRate": 0.005 },
+      "balloons": { "intervalMonths": 12, "maxRatio": 0.25 },
+      "keysRatio": 0.1,
+      "maxIncomeCommitment": 0.3,
+      "highCommitmentAlertRatio": 0.9,
+      "desiredInstallmentToleranceRatio": 0.15,
+      "correction": { "index": "INCC", "projectedMonthlyRate": 0.004 }
+    },
+    "bankEstimate": { "enabled": true }
+  },
+  "altomare": {
+    "version": "2026-11-altomare-ILUSTRATIVO-v1",
+    "status": "ILUSTRATIVO",
+    "validFrom": "2026-01-01",
+    "validTo": null,
+    "adjustmentToleranceRatio": 0.1,
+    "cash": { "enabled": true, "discountRatio": 0.1 },
+    "downPayment": { "minRatio": 0.3, "maxRatio": 0.6 },
+    "upfront": { "enabled": true },
+    "installments": {
+      "enabled": true,
+      "act": { "minRatio": 0.15, "minAmount": 30000 },
+      "monthly": { "maxCount": 60, "minAmount": 2000, "monthlyInterestRate": 0 },
+      "balloons": { "intervalMonths": 6, "maxRatio": 0.2 },
+      "keysRatio": 0.1,
+      "maxIncomeCommitment": 0.3,
+      "highCommitmentAlertRatio": 0.9,
+      "desiredInstallmentToleranceRatio": 0.15,
+      "correction": { "index": "INCC", "projectedMonthlyRate": null }
+    },
+    "bankEstimate": { "enabled": false }
+  }
+}
