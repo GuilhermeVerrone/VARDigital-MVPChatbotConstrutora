@@ -3,6 +3,7 @@ export { assignBroker, type AssignedBroker } from './brokers';
 export {
   claimNextJob,
   completeJob,
+  DEFAULT_JOB_KINDS,
   enqueueJob,
   failJob,
   requeueDeadJob,

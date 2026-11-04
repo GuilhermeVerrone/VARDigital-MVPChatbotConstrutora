@@ -5,7 +5,14 @@ import type { Prisma } from './generated/prisma/client';
 // Mesmas decisões da fila de entrada: o job é gravado antes de tentar entregar, a reserva expira
 // (lockedUntil) para outro worker retomar, e `dedupeKey` impede enfileirar a mesma entrega duas vezes.
 
-export type JobKind = 'CRM_SYNC' | 'BROKER_NOTIFY' | 'HANDOFF_NOTIFY';
+export type JobKind = 'CRM_SYNC' | 'BROKER_NOTIFY' | 'HANDOFF_NOTIFY' | 'FIRST_CONTACT';
+
+/**
+ * Tipos que o worker reserva quando não pede outros. FIRST_CONTACT (1ª mensagem do formulário do site,
+ * V2) fica fora até o worker de entrega ganhar o tratamento dele (Fase 13): enfileirado antes disso,
+ * espera em vez de falhar.
+ */
+export const DEFAULT_JOB_KINDS: readonly JobKind[] = ['CRM_SYNC', 'BROKER_NOTIFY', 'HANDOFF_NOTIFY'];
 
 export interface EnqueueJobArgs {
   kind: JobKind;
@@ -61,7 +68,7 @@ export async function enqueueJob(db: Pick<Db, 'deliveryJob'>, a: EnqueueJobArgs)
 export async function claimNextJob(db: Db, opts: ClaimJobOptions): Promise<DeliveryJobItem | null> {
   const now = opts.now ?? new Date();
   const lockedUntil = new Date(now.getTime() + opts.lockMs);
-  const kinds = opts.kinds ?? ['CRM_SYNC', 'BROKER_NOTIFY', 'HANDOFF_NOTIFY'];
+  const kinds = opts.kinds ?? DEFAULT_JOB_KINDS;
 
   // Reserva vencida de job que já gastou todas as tentativas: encerra como DEAD.
   await db.$executeRaw`

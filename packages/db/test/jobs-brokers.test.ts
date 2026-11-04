@@ -87,6 +87,14 @@ describe('fila de entregas', () => {
     expect(await claimNextJob(t.db, { ...opts, kinds: ['BROKER_NOTIFY'] })).toBeNull();
     expect((await claimNextJob(t.db, { ...opts, kinds: ['CRM_SYNC'] }))?.kind).toBe('CRM_SYNC');
   });
+
+  it('FIRST_CONTACT (V2) só é reservado quando pedido; por padrão espera o tratamento da Fase 13', async () => {
+    const lead = await t.db.lead.create({ data: { phone: '5500900000042', source: 'SITE_FORM' } });
+    expect(await enqueueJob(t.db, { kind: 'FIRST_CONTACT', leadId: lead.id })).toBe(true);
+    expect(await enqueueJob(t.db, { kind: 'FIRST_CONTACT', leadId: lead.id })).toBe(false);
+    expect(await claimNextJob(t.db, opts)).toBeNull();
+    expect(await claimNextJob(t.db, { ...opts, kinds: ['FIRST_CONTACT'] })).toMatchObject({ kind: 'FIRST_CONTACT', leadId: lead.id, attempts: 1 });
+  });
 });
 
 describe('atribuição de corretor (round-robin)', () => {
