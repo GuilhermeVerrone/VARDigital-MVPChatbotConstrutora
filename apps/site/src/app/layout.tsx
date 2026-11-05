@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <p className="muted small">Construímos para quem quer subir de nível, andar por andar.</p>
             </div>
             <div>
-              <h4>Empreendimentos</h4>
+              <h2>Empreendimentos</h2>
               <ul>
                 <li><Link href="/empreendimentos/lumen-urban">Lumen Urban</Link></li>
                 <li><Link href="/empreendimentos/parc-verde">Parc Verde</Link></li>
@@ -48,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </ul>
             </div>
             <div>
-              <h4>Contato</h4>
+              <h2>Contato</h2>
               <ul>
                 <li>+55 41 0000-0000</li>
                 <li>contato@elevare.example</li>

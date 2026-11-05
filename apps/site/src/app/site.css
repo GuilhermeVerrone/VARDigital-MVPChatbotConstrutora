@@ -45,7 +45,7 @@ figcaption { font-size: .8rem; padding: 10px 0 14px; }
 .site-footer { padding: 64px 0 40px; }
 .site-footer .wrap { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 40px; }
 .site-footer img { height: 52px; width: auto; margin-bottom: 20px; }
-.site-footer h4 { font-size: .9rem; margin-bottom: 14px; color: var(--lime); letter-spacing: 0; }
+.site-footer h2 { font-size: .9rem; margin-bottom: 14px; color: var(--lime); letter-spacing: 0; }
 .site-footer ul { list-style: none; margin: 0; padding: 0; }
 .site-footer li { margin-bottom: 8px; }
 .site-footer a { display: inline-block; padding: 4px 0; }
