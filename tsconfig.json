@@ -10,6 +10,7 @@
     "*.ts"
   ],
   "exclude": [
-    "apps/site"
+    "apps/site",
+    "apps/painel"
   ]
 }
