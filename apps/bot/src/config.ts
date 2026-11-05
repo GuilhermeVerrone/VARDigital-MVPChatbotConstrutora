@@ -43,6 +43,13 @@ const envSchema = z.object({
   DELIVERY_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(8),
   // Prazo para o corretor ligar, citado no "próximo passo" do dossiê (o SLA configurável é pós-MVP).
   BROKER_CONTACT_MINUTES: z.coerce.number().int().positive().default(5),
+  // 1º contato do formulário do site (Fase 13): janela de horário, limite por hora e fuso. A lista de
+  // permitidos do piloto é a ALLOWED_PHONES.
+  FIRST_CONTACT_START: z.string().regex(/^\d{1,2}:\d{2}$/, 'use HH:MM').default('08:00'),
+  FIRST_CONTACT_END: z.string().regex(/^\d{1,2}:\d{2}$/, 'use HH:MM').default('20:00'),
+  FIRST_CONTACT_DAYS: z.string().default('1-6'),
+  FIRST_CONTACT_TIMEZONE: z.string().default('America/Sao_Paulo'),
+  FIRST_CONTACT_MAX_PER_HOUR: z.coerce.number().int().min(0).default(30),
   // LLM (fallback dos parsers e FAQ). LLM_ENABLED=false → só parsers. Provedor: API da Anthropic (padrão) ou
   // Ollama local (perfil opcional do compose). Sem chave o bot segue só com os parsers.
   LLM_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),

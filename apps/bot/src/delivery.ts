@@ -5,19 +5,15 @@ import { assignBroker, loadSimulationBundle, markDelivered, scoreClassFor, setJo
 import {
   buildPaymentPdf, buildSimulationPdf, dossierCard, handoffCard, paymentDossierCard, pdfFileName, type HandoffHistoryEntry,
 } from '@mvp/presentation';
+import { DeferJobError, PermanentJobError } from './lib/job-errors';
+import { createFirstContact, type FirstContactOptions } from './first-contact';
 import { toPaymentView, toView } from './view';
 
 // Entregas de saída (Fase 6): sincronizar o lead com o CRM e avisar o corretor com o dossiê e o PDF.
 // Cada uma é um job da fila (delivery_jobs): se falhar, volta com espera e tenta de novo, sem
 // perder o lead e sem travar a outra entrega (o CRM fora do ar não atrasa o aviso ao corretor).
 
-/** Erro que não adianta repetir (dado que falta, destino recusado): o job vai para DEAD. */
-export class PermanentJobError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'PermanentJobError';
-  }
-}
+export { DeferJobError, PermanentJobError };
 
 export interface DeliveryDeps {
   db: Db;
@@ -25,6 +21,8 @@ export interface DeliveryDeps {
   crm: CrmAdapter;
   /** Prazo para o primeiro contato citado no próximo passo do dossiê (padrão 5). */
   contactWithinMinutes?: number;
+  /** 1º contato do formulário do site (Fase 13). Sem isto o job FIRST_CONTACT é recusado. */
+  firstContact?: FirstContactOptions;
 }
 
 /** Erros que não se resolvem tentando de novo. */
@@ -174,12 +172,16 @@ export function createDeliveryHandler(deps: DeliveryDeps) {
     await db.auditLog.create({ data: { actor: 'bot', entity: 'lead', entityId: lead.id, action: 'handoff_notified', after: { brokerId: broker.id } } });
   }
 
+  const firstContact = deps.firstContact ? createFirstContact({ db, channel }, deps.firstContact) : null;
+
   return async function handle(job: DeliveryJobItem): Promise<void> {
     switch (job.kind) {
       case 'CRM_SYNC': return syncCrm(job);
       case 'BROKER_NOTIFY': return notifyBroker(job);
       case 'HANDOFF_NOTIFY': return notifyHandoff(job);
-      case 'FIRST_CONTACT': throw new Error('FIRST_CONTACT ainda não é tratado pelo worker (Fase 13)');
+      case 'FIRST_CONTACT':
+        if (!firstContact) throw new PermanentJobError('1º contato não configurado neste worker');
+        return firstContact(job);
     }
   };
 }

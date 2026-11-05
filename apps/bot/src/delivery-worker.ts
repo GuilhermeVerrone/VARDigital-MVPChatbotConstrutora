@@ -1,5 +1,5 @@
-import { claimNextJob, completeJob, failJob, type Db, type DeliveryJobItem } from '@mvp/db';
-import { isPermanent } from './delivery';
+import { claimNextJob, completeJob, deferJob, failJob, type Db, type DeliveryJobItem } from '@mvp/db';
+import { DeferJobError, isPermanent } from './delivery';
 import { safeError } from './lib/mask';
 import type { Worker, WorkerLogger } from './worker';
 
@@ -49,6 +49,11 @@ export function createDeliveryWorker(opts: DeliveryWorkerOptions): Worker {
     try {
       await opts.handle(job);
     } catch (err) {
+      if (err instanceof DeferJobError) {
+        opts.log.info({ ...ctx, until: err.until.toISOString(), reason: err.message }, 'entrega adiada');
+        await deferJob(opts.db, job.id, err.until, err.message);
+        return true;
+      }
       const error = safeError(err);
       const permanent = isPermanent(err);
       if (permanent || job.attempts >= opts.maxAttempts) {
