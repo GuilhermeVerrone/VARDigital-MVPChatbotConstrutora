@@ -170,7 +170,8 @@ export interface PreviewInput {
 export interface PreviewOutput {
   referenceDate: string;
   conditionVersion: string | null;
-  modes: { mode: PaymentMode; preview: PreviewResult }[];
+  /** Cada modo traz o resultado ou o motivo de não ter sido calculado (um modo com erro não apaga os outros). */
+  modes: { mode: PaymentMode; preview?: PreviewResult; error?: string }[];
   /** Modos que a condição não oferece (ficam fora da prévia). */
   notOffered: PaymentMode[];
 }
@@ -190,7 +191,12 @@ export async function previewConditionService(ctx: ServiceCtx, input: PreviewInp
   const all: PaymentMode[] = ['A_VISTA', 'ENTRADA_A_VISTA', 'ENTRADA_PARCELADA'];
   const modes: PreviewOutput['modes'] = [];
   for (const mode of offered) {
-    modes.push({ mode, preview: await previewPayment(ctx.db, { unitId: input.unitId, mode, profileId: input.profileId, referenceDate, ...(draft ? { draftCondition: draft } : {}) }) });
+    try {
+      modes.push({ mode, preview: await previewPayment(ctx.db, { unitId: input.unitId, mode, profileId: input.profileId, referenceDate, ...(draft ? { draftCondition: draft } : {}) }) });
+    } catch (err) {
+      if (err instanceof Error && !(err instanceof TypeError)) modes.push({ mode, error: err.message });
+      else throw err;
+    }
   }
-  return { referenceDate, conditionVersion: modes[0]?.preview.conditionVersion ?? null, modes, notOffered: all.filter((m) => !offered.includes(m)) };
+  return { referenceDate, conditionVersion: modes.find((m) => m.preview)?.preview?.conditionVersion ?? null, modes, notOffered: all.filter((m) => !offered.includes(m)) };
 }

@@ -68,7 +68,7 @@ describe('condições: rascunho → diff → publicar', () => {
     const before = await t.db.salesCondition.count();
     const preview = await previewConditionService(ctx('GERENTE'), { developmentId: lumenId, unitId, profileId: 'renda-media', values, referenceDate: NEXT });
     expect(preview.conditionVersion).toBeNull();
-    expect(preview.modes.find((m) => m.mode === 'A_VISTA')?.preview.result.cash?.discountRatio).toBe(0.12);
+    expect(preview.modes.find((m) => m.mode === 'A_VISTA')?.preview?.result.cash?.discountRatio).toBe(0.12);
     expect(await t.db.salesCondition.count()).toBe(before);
   });
 

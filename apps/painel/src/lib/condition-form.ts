@@ -111,6 +111,26 @@ export function conditionToValues(c: SalesCondition): Record<string, string> {
   return out;
 }
 
+/** Formulário em branco (empreendimento sem nenhuma condição): o motor não tem valores padrão de negócio. */
+export function emptyValues(): Record<string, string> {
+  return Object.fromEntries(ALL_FIELDS.map((f) => [f.name, f.kind === 'select' ? (f.options?.[0] ?? '') : '']));
+}
+
+/** Rótulo do campo a partir do caminho (cai no próprio caminho se não houver). */
+export function labelForPath(path: string): string {
+  return ALL_FIELDS.find((f) => f.name === path)?.label ?? path;
+}
+
+/** Valor legível de um campo da condição (frações em %, dinheiro em R$). */
+export function formatConditionValue(path: string, value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  const kind = ALL_FIELDS.find((f) => f.name === path)?.kind;
+  if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
+  if (typeof value === 'number' && kind === 'percent') return `${pct(value)}%`;
+  if (typeof value === 'number' && kind === 'money') return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return String(value);
+}
+
 export interface BuiltCondition {
   /** Condição no formato do motor, ainda sem versão/vigência definitivas. */
   condition: SalesCondition | null;
