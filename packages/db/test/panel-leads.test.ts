@@ -34,7 +34,7 @@ async function lead(o: Partial<{ name: string; developmentId: string; paymentMod
     data: {
       name: o.name ?? `Lead ${n}`, phone, contactCode: `ELV-${1000 + n}`, source: o.source ?? 'SITE_FORM', developmentId: o.developmentId ?? lumen,
       ...(o.paymentMode ? { paymentMode: o.paymentMode } : {}), ...(o.scoreClass ? { scoreClass: o.scoreClass } : {}), status: o.status ?? 'NEW',
-      brokerId: o.brokerId === undefined ? null : o.brokerId, ...(o.confirmed ? { contactConfirmedAt: NOW } : {}), ...(o.createdAt ? { createdAt: o.createdAt } : {}),
+      brokerId: o.brokerId === undefined ? null : o.brokerId, ...(o.confirmed ? { contactConfirmedAt: NOW } : {}), createdAt: o.createdAt ?? NOW,
     },
   });
   if (o.simulated) {
