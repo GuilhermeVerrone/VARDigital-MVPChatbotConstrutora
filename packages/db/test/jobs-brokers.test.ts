@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { assignBroker, claimNextJob, completeJob, enqueueJob, failJob, pickUnitForTypology, requeueDeadJob, runAndRecordSimulation, seedDatabase } from '../src';
+import { assignBroker, claimNextJob, completeJob, deferJob, enqueueJob, failJob, pickUnitForTypology, requeueDeadJob, runAndRecordSimulation, seedDatabase } from '../src';
 import { createTestDb, type TestDb } from './db';
 
 let t: TestDb;
@@ -88,12 +88,22 @@ describe('fila de entregas', () => {
     expect((await claimNextJob(t.db, { ...opts, kinds: ['CRM_SYNC'] }))?.kind).toBe('CRM_SYNC');
   });
 
-  it('FIRST_CONTACT (V2) só é reservado quando pedido; por padrão espera o tratamento da Fase 13', async () => {
+  it('FIRST_CONTACT (V2) é enfileirado uma vez e reservado como os outros tipos', async () => {
     const lead = await t.db.lead.create({ data: { phone: '5500900000042', source: 'SITE_FORM' } });
     expect(await enqueueJob(t.db, { kind: 'FIRST_CONTACT', leadId: lead.id })).toBe(true);
     expect(await enqueueJob(t.db, { kind: 'FIRST_CONTACT', leadId: lead.id })).toBe(false);
-    expect(await claimNextJob(t.db, opts)).toBeNull();
-    expect(await claimNextJob(t.db, { ...opts, kinds: ['FIRST_CONTACT'] })).toMatchObject({ kind: 'FIRST_CONTACT', leadId: lead.id, attempts: 1 });
+    expect(await claimNextJob(t.db, opts)).toMatchObject({ kind: 'FIRST_CONTACT', leadId: lead.id, attempts: 1 });
+  });
+
+  it('deferJob devolve o job para a fila na hora marcada sem gastar tentativa', async () => {
+    const lead = await t.db.lead.create({ data: { phone: '5500900000043', source: 'SITE_FORM' } });
+    const now = new Date('2026-11-05T12:00:00Z');
+    await enqueueJob(t.db, { kind: 'FIRST_CONTACT', leadId: lead.id, availableAt: now });
+    const job = (await claimNextJob(t.db, { ...opts, now }))!;
+    const until = new Date(now.getTime() + 3_600_000);
+    expect(await deferJob(t.db, job.id, until, 'fora do horário')).toBe(true);
+    expect(await claimNextJob(t.db, { ...opts, now })).toBeNull();
+    expect(await claimNextJob(t.db, { ...opts, now: until })).toMatchObject({ id: job.id, attempts: 1 });
   });
 });
 

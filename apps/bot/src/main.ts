@@ -5,6 +5,7 @@ import { SimulatedCrm } from '@mvp/crm';
 import { createDb } from '@mvp/db';
 import { createCallBudget } from '@mvp/llm';
 import { loadConfig } from './config';
+import { parseClock, parseDays } from './lib/business-hours';
 import { LOG_REDACT_PATHS } from './lib/mask';
 import { createDeliveryHandler } from './delivery';
 import { createDeliveryWorker } from './delivery-worker';
@@ -88,7 +89,22 @@ const worker = createWorker({
 
 const deliveryWorker = createDeliveryWorker({
   db,
-  handle: createDeliveryHandler({ db, channel, crm: new SimulatedCrm(db), contactWithinMinutes: config.BROKER_CONTACT_MINUTES }),
+  handle: createDeliveryHandler({
+    db,
+    channel,
+    crm: new SimulatedCrm(db),
+    contactWithinMinutes: config.BROKER_CONTACT_MINUTES,
+    firstContact: {
+      window: {
+        startMin: parseClock(config.FIRST_CONTACT_START),
+        endMin: parseClock(config.FIRST_CONTACT_END),
+        days: parseDays(config.FIRST_CONTACT_DAYS),
+        timeZone: config.FIRST_CONTACT_TIMEZONE,
+      },
+      maxPerHour: config.FIRST_CONTACT_MAX_PER_HOUR,
+      isAllowed: (phone) => allowlist.isAllowed(phone),
+    },
+  }),
   log: app.log,
   maxAttempts: config.DELIVERY_MAX_ATTEMPTS,
   lockMs: config.DELIVERY_LOCK_MS,

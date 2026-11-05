@@ -10,7 +10,7 @@
     "build": "pnpm -r build",
     "dev": "pnpm --filter @mvp/bot dev",
     "lint": "eslint .",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && pnpm --filter @mvp/site typecheck",
     "test": "vitest run",
     "check": "pnpm lint && pnpm typecheck && pnpm test"
   },

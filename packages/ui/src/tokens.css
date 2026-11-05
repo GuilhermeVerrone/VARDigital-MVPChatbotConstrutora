@@ -1,0 +1,17 @@
+/* Tokens Elevare. Verde #0F3D36 (base, 60%) · lima #B5D86A (apoio, 30%) · coral #F4623A (destaque, 10%) · off-white #F3F1E7. */
+:root {
+  --green: #0F3D36;
+  --green-80: #3F635D;
+  --green-60: #6F8B86;
+  --green-12: #DCE0D5;
+  --green-06: #E8EAE0;
+  --lime: #B5D86A;
+  --lime-30: #E1EBC3;
+  --coral: #F4623A;
+  --paper: #F3F1E7;
+  --white: #FBFAF5;
+  --line: rgba(15, 61, 54, .18);
+  --radius: 4px;
+  --wrap: 1200px;
+  --font: "Inter", "Helvetica Neue", Arial, system-ui, sans-serif;
+}
