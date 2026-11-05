@@ -1,4 +1,4 @@
-import { purgeInactive, type Db } from '@mvp/db';
+import { closeUnconfirmedFormLeads, purgeInactive, type Db } from '@mvp/db';
 import { safeError } from './lib/mask';
 
 // Retenção configurável (LGPD, spec §7.3): de tempos em tempos apaga os leads sem atividade há mais
@@ -17,7 +17,7 @@ export interface RetentionOptions {
 
 export interface Retention {
   /** Uma passada; devolve o que foi apagado. */
-  sweep(): Promise<{ leads: number; sessions: number; messages: number }>;
+  sweep(): Promise<{ leads: number; sessions: number; messages: number; unconfirmed: number }>;
   start(): void;
   stop(): void;
 }
@@ -29,8 +29,11 @@ export function createRetention(opts: RetentionOptions): Retention {
   async function sweep() {
     const at = now();
     const out = await purgeInactive(opts.db, { inactiveSince: new Date(at.getTime() - opts.days * DAY), now: at });
-    if (out.leads + out.sessions + out.messages > 0) opts.log.info(out, 'retenção aplicada: dados inativos apagados');
-    return out;
+    // Double opt-in: quem preencheu o formulário e não confirmou em 48 h é encerrado, sem mais mensagens.
+    const unconfirmed = await closeUnconfirmedFormLeads(opts.db, at);
+    const result = { ...out, unconfirmed };
+    if (out.leads + out.sessions + out.messages + unconfirmed > 0) opts.log.info(result, 'retenção aplicada: dados inativos apagados');
+    return result;
   }
 
   const safeSweep = () => sweep().catch((err: unknown) => void opts.log.error({ error: safeError(err) }, 'falha na rotina de retenção'));

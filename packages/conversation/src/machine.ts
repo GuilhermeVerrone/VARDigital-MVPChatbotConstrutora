@@ -1,10 +1,11 @@
 import { interpretReply, type FieldDef, type FieldValue, type InterpretDeps, type Interpretation } from '@mvp/llm';
 import { parseCommand, parseOption, type CommandName } from '@mvp/parsers';
 import {
-  correctionOptions, fieldsFor, isAnswerState, resolveCorrectionTarget, resultOptions, STEPS, summaryLines,
+  correctionOptions, developmentOf, fieldsFor, isAnswerState, resolveCorrectionTarget, resultOptions, STEPS, summaryLines,
   type AnswerState, type ResultChoice,
 } from './steps';
 import { T } from './templates';
+import { tx } from './texts';
 import type { Collected, Effect, FlowEnv, QuestionState, Reply, Snapshot, StateName, StepResult } from './types';
 
 export const MAX_FAILURES = 3;
@@ -29,7 +30,13 @@ export function initialSnapshot(): Snapshot {
   };
 }
 
+/** Snapshot de quem veio do formulário do site: começa na confirmação do pedido (double opt-in), com os dados já preenchidos. */
+export function formSnapshot(data: Collected): Snapshot {
+  return { ...initialSnapshot(), state: 'CONTACT_CONFIRM', data };
+}
+
 const text = (t: string): Reply => ({ text: t });
+const firstName = (name: string | undefined): string => name?.trim().split(/\s+/)[0] || 'tudo bem';
 const num = (v: FieldValue | null | undefined): number => v as number;
 
 /** Texto curto de uma resposta (histórico e log). */
@@ -39,7 +46,7 @@ export function replyPreview(r: Reply): string {
   return [r.list.title, ...r.list.options.map((o, i) => `${i + 1}. ${o}`)].join(' | ');
 }
 
-const RESULT_FAMILY = new Set<StateName>(['RESULT', 'ADJUST_DOWN', 'ADJUST_TERM']);
+const RESULT_FAMILY = new Set<StateName>(['RESULT', 'ADJUST_DOWN', 'ADJUST_TERM', 'ADJUST_ACT', 'ADJUST_BALLOONS', 'ADJUST_UNIT', 'CASH_OFFER']);
 const isResultState = (s: StateName): boolean => RESULT_FAMILY.has(s);
 
 /** Junta um texto de abertura à pergunta, numa mensagem só quando a pergunta é texto. */
@@ -54,8 +61,12 @@ export function questionFor(state: StateName, snap: Snapshot, env: FlowEnv): Rep
   switch (state) {
     case 'CONFIRM':
       return [text([T.confirmIntro, ...summaryLines(snap.data, env), '', T.confirmAsk].join('\n'))];
+    case 'CONTACT_CONFIRM':
+      return [text(tx(env, 'CONTACT_CONFIRM_ASK', { nome: firstName(snap.data.name), empreendimento: developmentOf(env, snap.data)?.name ?? env.developmentName }))];
+    case 'CASH_OFFER':
+      return [text(tx(env, 'CASH_OFFER_ASK'))];
     case 'CORRECTION_MENU':
-      return [{ list: { ...T.correctionMenu, options: correctionOptions().map((o) => o.label) } }];
+      return [{ list: { ...T.correctionMenu, options: correctionOptions(snap.data, env).map((o) => o.label) } }];
     case 'HANDOFF_OFFER':
       return [text(T.handoffOffer)];
     case 'LGPD_CONFIRM':
@@ -65,7 +76,13 @@ export function questionFor(state: StateName, snap: Snapshot, env: FlowEnv): Rep
     case 'SIMULATING':
       return [text(T.stillCalculating)];
     case 'RESULT':
-      return [{ list: { ...T.resultMenu, options: resultOptions().map((o) => o.label) } }];
+      return [{ list: { ...T.resultMenu, options: resultOptions(snap.data, env).map((o) => o.label) } }];
+    case 'ADJUST_ACT':
+      return [text(T.askAdjustAct(snap.adjust?.cashNow ?? snap.data.cashNow ?? 0, snap.data.paymentMode === 'ENTRADA_PARCELADA'))];
+    case 'ADJUST_BALLOONS':
+      return [text(T.askAdjustBalloons)];
+    case 'ADJUST_UNIT':
+      return [{ list: { title: T.askAdjustUnit, footer: 'Responda com o número.', options: (developmentOf(env, snap.data)?.typologies ?? env.typologies).map((o) => o.label) } }];
     case 'ADJUST_DOWN':
       return [text(T.askAdjustDown(snap.adjust?.downPayment ?? snap.data.downPayment ?? 0))];
     case 'ADJUST_TERM':
@@ -75,21 +92,29 @@ export function questionFor(state: StateName, snap: Snapshot, env: FlowEnv): Rep
   }
 }
 
-function fieldsOf(state: QuestionState, env: FlowEnv): readonly FieldDef[] {
+function fieldsOf(state: QuestionState, env: FlowEnv, data: Collected): readonly FieldDef[] {
   switch (state) {
     case 'CONFIRM': return [{ key: 'confirmed', kind: 'boolean' }];
+    case 'CONTACT_CONFIRM': return [{ key: 'contactConfirmed', kind: 'boolean' }];
+    case 'CASH_OFFER': return [{ key: 'wantsHuman', kind: 'boolean' }];
+    case 'ADJUST_ACT': return [{ key: 'cashNow', kind: 'money' }];
+    case 'ADJUST_BALLOONS': return [{ key: 'acceptsBalloons', kind: 'boolean' }];
+    case 'ADJUST_UNIT': return [{ key: 'typology', kind: 'option', options: developmentOf(env, data)?.typologies ?? env.typologies }];
     case 'HANDOFF_OFFER': return [{ key: 'wantsHuman', kind: 'boolean' }];
     case 'LGPD_CONFIRM': return [{ key: 'confirmErase', kind: 'boolean' }];
-    case 'CORRECTION_MENU': return [{ key: 'item', kind: 'option', options: correctionOptions() }];
-    case 'RESULT': return [{ key: 'item', kind: 'option', options: resultOptions() }];
+    case 'CORRECTION_MENU': return [{ key: 'item', kind: 'option', options: correctionOptions(data, env) }];
+    case 'RESULT': return [{ key: 'item', kind: 'option', options: resultOptions(data, env) }];
     case 'ADJUST_DOWN': return [{ key: 'downPayment', kind: 'money' }];
     case 'ADJUST_TERM': return [{ key: 'termMonths', kind: 'months' }];
-    default: return fieldsFor(state, env);
+    default: return fieldsFor(state as AnswerState, env, data);
   }
 }
 
+/** A pergunta como o LLM a recebe (nunca com o nome do lead). */
 const questionText = (state: QuestionState, snap: Snapshot, env: FlowEnv): string =>
-  questionFor(state, snap, env).map((r) => ('list' in r ? r.list.title : replyPreview(r))).join(' ');
+  state === 'CONTACT_CONFIRM'
+    ? 'O lead pediu uma simulação de imóvel no site da construtora, certo? (sim/não)'
+    : questionFor(state, snap, env).map((r) => ('list' in r ? r.list.title : replyPreview(r))).join(' ');
 
 /** Lê a resposta do lead para a etapa atual: comando → filtro → parser → LLM (fallback). */
 export async function interpretStep(
@@ -105,13 +130,17 @@ export async function interpretStep(
     return { kind: 'off_topic' };
   }
   const state = snap.state as QuestionState;
+  // "Não pedi", "não fui eu", "engano": quem recebeu a mensagem sem ter pedido recusa de qualquer jeito.
+  if (state === 'CONTACT_CONFIRM' && /^\s*(n[aã]o|engano|nunca pedi)\b/i.test(input) && !parseCommand(input)) {
+    return { kind: 'answer', fields: { contactConfirmed: false }, source: 'parser' };
+  }
   if (isAnswerState(state)) {
     const pre = STEPS[state].preParse?.(input);
     if (pre) return { kind: 'answer', fields: pre, source: 'parser' };
   }
   return interpretReply(
     input,
-    { state, question: questionText(state, snap, env), fields: fieldsOf(state, env) },
+    { state, question: questionText(state, snap, env), fields: fieldsOf(state, env, snap.data) },
     { ...deps, today: env.today },
   );
 }
@@ -136,14 +165,23 @@ function pathUntil(target: StateName, data: Collected, env: FlowEnv): AnswerStat
 function advance(from: AnswerState, data: Collected, env: FlowEnv, returnTo: QuestionState | null) {
   let next: StateName = STEPS[from].next(data, env);
   if (!returnTo) return { next, returnTo: null };
-  for (let i = 0; i < 40 && next !== returnTo && isAnswerState(next) && STEPS[next].answered(data); i++) {
+  for (let i = 0; i < 40 && next !== returnTo && isAnswerState(next) && STEPS[next].answered(data, env); i++) {
     next = STEPS[next].next(data, env);
   }
   return { next, returnTo: next === returnTo ? null : returnTo };
 }
 
+/** A primeira pergunta que o lead ainda não respondeu (o formulário já trouxe nome, telefone e empreendimento). */
+function firstUnanswered(data: Collected, env: FlowEnv): StateName {
+  let s: StateName = 'NAME';
+  for (let i = 0; i < 40 && isAnswerState(s) && STEPS[s].answered(data, env); i++) s = STEPS[s].next(data, env);
+  return s;
+}
+
 function leadFieldEffects(state: AnswerState, d: Collected): Effect[] {
   switch (state) {
+    case 'DEVELOPMENT': return d.developmentId ? [{ type: 'set_lead', fields: { developmentId: d.developmentId } }] : [];
+    case 'PAYMENT_MODE': return d.paymentMode ? [{ type: 'set_lead', fields: { paymentMode: d.paymentMode } }] : [];
     case 'NAME': return d.name ? [{ type: 'set_lead', fields: { name: d.name } }] : [];
     case 'PHONE_CONFIRM':
     case 'PHONE': return d.phone ? [{ type: 'set_lead', fields: { phone: d.phone } }] : [];
@@ -173,7 +211,7 @@ function record(snap: Snapshot, meta: TurnMeta, replies: Reply[]): Snapshot {
 /** Mensagem sem texto (áudio, imagem…): não avança, não conta como erro. */
 export function handleNonText(snap: Snapshot, env: FlowEnv, meta: TurnMeta): StepResult {
   const state = snap.state;
-  const replies = isAnswerState(state) || state === 'CONFIRM' || state === 'CORRECTION_MENU' || state === 'HANDOFF_OFFER' || state === 'LGPD_CONFIRM' || isResultState(state)
+  const replies = !TERMINAL.has(state)
     ? withLead(T.textOnly, questionFor(state, snap, env)[0]!)
     : state === 'DONE' ? [text(T.doneAgain)] : [];
   return { snapshot: record(snap, meta, replies), replies, effects: [] };
@@ -209,6 +247,8 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
     const failures = snap.failures + 1;
     // Sem resposta clara sobre apagar, nada é apagado.
     if (failures >= MAX_FAILURES && qs === 'LGPD_CONFIRM') return declineErase();
+    // Sem resposta clara sobre o pedido do site, não insiste nem chama corretor: encerra e não escreve mais.
+    if (failures >= MAX_FAILURES && qs === 'CONTACT_CONFIRM') return declineContact();
     if (failures >= MAX_FAILURES && qs !== 'HANDOFF_OFFER') {
       return done({ ...snap, state: 'HANDOFF_OFFER', failures: 0, resumeTo: qs }, [text(T.handoffOffer)]);
     }
@@ -248,9 +288,9 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
         }
         case 'correct': {
           // "mudar a entrada"/"mudar o prazo" no resultado são os ajustes, não a correção dos dados.
-          const pick = isResultState(qs) && it.target ? parseOption(it.target, resultOptions()) : null;
-          if (pick && (pick.id === 'down' || pick.id === 'term')) return chooseResult(pick.id);
-          const target = it.target ? resolveCorrectionTarget(it.target, snap.data) : null;
+          const pick = isResultState(qs) && it.target ? parseOption(it.target, resultOptions(snap.data, env)) : null;
+          if (pick && (pick.id === 'down' || pick.id === 'term' || pick.id === 'act')) return chooseResult(pick.id);
+          const target = it.target ? resolveCorrectionTarget(it.target, snap.data, env) : null;
           if (!target) {
             const next: Snapshot = { ...snap, state: 'CORRECTION_MENU', failures: 0, resumeTo: returnPointOf(snap) };
             return done(next, questionFor('CORRECTION_MENU', next, env));
@@ -279,13 +319,28 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
     return done(next, TERMINAL.has(back) ? [text(T.lgpdKept)] : withLead(T.lgpdKept, questionFor(back, next, env)[0]!));
   }
 
+  function declineContact(): StepResult {
+    return done({ ...snap, state: 'OPTED_OUT', failures: 0 }, [text(tx(env, 'CONTACT_DECLINED'))], [
+      { type: 'lead_status', status: 'CLOSED' }, { type: 'audit', action: 'contact_declined' },
+    ]);
+  }
+
   function chooseResult(choice: ResultChoice): StepResult {
     switch (choice) {
       case 'down':
-      case 'term': {
-        const next: Snapshot = { ...snap, state: choice === 'down' ? 'ADJUST_DOWN' : 'ADJUST_TERM', failures: 0 };
+      case 'term':
+      case 'act':
+      case 'balloons':
+      case 'unit': {
+        const state = { down: 'ADJUST_DOWN', term: 'ADJUST_TERM', act: 'ADJUST_ACT', balloons: 'ADJUST_BALLOONS', unit: 'ADJUST_UNIT' }[choice] as StateName;
+        const next: Snapshot = { ...snap, state, failures: 0 };
         return done(next, questionFor(next.state, next, env));
       }
+      case 'mode':
+        // Outra forma de pagamento: refaz só o que a nova forma pede e volta à confirmação, que recalcula.
+        return jumpTo('PAYMENT_MODE', 'CONFIRM');
+      case 'human':
+        return handoff(snap);
       case 'pdf': {
         const menu = questionFor('RESULT', snap, env);
         if (!snap.simulationId) return done({ ...snap, state: 'RESULT', failures: 0 }, menu);
@@ -297,12 +352,34 @@ export function applyInterpretation(snap: Snapshot, it: Interpretation, env: Flo
   }
 
   function jumpTo(target: AnswerState, returnTo: QuestionState | null): StepResult {
-    if (!STEPS[target].answered(snap.data)) return done(snap, again(T.notYet));
+    if (!STEPS[target].answered(snap.data, env)) return done(snap, again(T.notYet));
     const next: Snapshot = { ...snap, state: target, failures: 0, returnTo, resumeTo: null };
     return done(next, again(T.wentBack, next));
   }
 
   function answer(values: Record<string, FieldValue | null>): StepResult {
+    if (qs === 'CONTACT_CONFIRM') {
+      if (values.contactConfirmed !== true) return declineContact();
+      const next = firstUnanswered(snap.data, env);
+      const nextSnap: Snapshot = { ...snap, state: next, failures: 0 };
+      const hello = tx(env, 'CONTACT_CONFIRMED', { nome: firstName(snap.data.name), empreendimento: developmentOf(env, snap.data)?.name ?? env.developmentName });
+      return done(nextSnap, withLead(hello, questionFor(next, nextSnap, env)[0]!), [{ type: 'contact_confirmed' }]);
+    }
+    if (qs === 'CASH_OFFER') {
+      if (values.wantsHuman === true) return handoff(snap);
+      return done({ ...snap, state: 'RESULT', failures: 0 }, questionFor('RESULT', snap, env));
+    }
+    if (qs === 'ADJUST_ACT') {
+      const adjust = { ...snap.adjust, cashNow: num(values.cashNow) };
+      return done({ ...snap, state: 'SIMULATING', failures: 0, adjust }, [text(T.recalculating)]);
+    }
+    if (qs === 'ADJUST_BALLOONS') {
+      const adjust = { ...snap.adjust, acceptsBalloons: values.acceptsBalloons === true };
+      return done({ ...snap, state: 'SIMULATING', failures: 0, adjust }, [text(T.recalculating)]);
+    }
+    if (qs === 'ADJUST_UNIT') {
+      return done({ ...snap, state: 'SIMULATING', failures: 0, data: { ...snap.data, typology: String(values.typology) } }, [text(T.recalculating)]);
+    }
     if (qs === 'CONFIRM') {
       if (values.confirmed === true) {
         // Dados confirmados: grava o perfil e vai calcular. Uma conversa nova começa sem ajustes.
@@ -380,6 +457,9 @@ function hintFor(state: QuestionState): string {
   if (isAnswerState(state)) return STEPS[state].hint;
   switch (state) {
     case 'CORRECTION_MENU': return 'Responda com o número ou o nome do item.';
+    case 'ADJUST_ACT': return 'Informe o valor. Ex.: 30 mil ou 30000.';
+    case 'ADJUST_BALLOONS': return 'Responda *sim* ou *não*.';
+    case 'ADJUST_UNIT': return 'Responda com o número da opção.';
     case 'RESULT': return 'Responda com o número de uma das opções.';
     case 'ADJUST_DOWN': return 'Informe o valor. Ex.: 80 mil ou 80000.';
     case 'ADJUST_TERM': return 'Diga o prazo com a unidade. Ex.: 30 anos ou 360 meses.';
@@ -413,15 +493,18 @@ export interface ResultArgs {
   /** true quando o corretor já tinha recebido uma simulação deste lead (esta é uma atualização). */
   brokerAlreadyNotified: boolean;
   at: string;
+  /** Depois do resultado: o menu de ajustes (padrão) ou a oferta do corretor, no pagamento à vista. */
+  next?: 'RESULT' | 'CASH_OFFER';
 }
 
 /** Resultado apresentado: o lead vê o menu de ajustes e o PDF. Fecha a fase SIMULATING. */
 export function enterResult(snap: Snapshot, env: FlowEnv, a: ResultArgs): StepResult {
-  const next: Snapshot = { ...snap, state: 'RESULT', failures: 0, simulationId: a.simulationId };
+  const state = a.next ?? 'RESULT';
+  const next: Snapshot = { ...snap, state, failures: 0, simulationId: a.simulationId };
   const replies: Reply[] = [
     ...a.messages.map(text),
     text(a.brokerAlreadyNotified ? T.brokerUpdated : T.brokerInformed),
-    ...questionFor('RESULT', next, env),
+    ...questionFor(state, next, env),
   ];
   return { snapshot: record(next, { messageId: snap.lastInboundId ?? '', input: null, at: a.at }, replies), replies, effects: [] };
 }

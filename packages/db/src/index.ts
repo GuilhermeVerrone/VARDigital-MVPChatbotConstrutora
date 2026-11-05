@@ -135,6 +135,8 @@ export {
   deleteSession,
   findReleasableHandoff,
   listActiveTypologies,
+  listDevelopmentCatalog,
+  type CatalogDevelopment,
   listOpenHandoffs,
   loadChat,
   releaseHandoff,
@@ -154,3 +156,13 @@ export {
   type TurnWrites,
   type WaitingHandoff,
 } from './conversations';
+export {
+  assignContactCode,
+  closeUnconfirmedFormLeads,
+  extractContactCode,
+  findFormLead,
+  formatContactCode,
+  startFormConversation,
+  type FormLead,
+  type StartFormConversationArgs,
+} from './form-leads';

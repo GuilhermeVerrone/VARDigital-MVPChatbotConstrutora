@@ -41,7 +41,7 @@ describe('fluxo de coleta', () => {
     const c = new Chat();
     await c.say('meu nome é Maria da Silva');
     expect(c.snap.state).toBe('PHONE_CONFIRM');
-    expect(c.text).toContain('Certo, prazer, Maria');
+    expect(c.text).toContain('Prazer, Maria!');
     expect(c.text).toContain('(13) 98126-4295');
     await c.say('sim');
     expect(c.snap.data.phone).toBe('5513981264295');
@@ -49,7 +49,7 @@ describe('fluxo de coleta', () => {
     await c.say('dois quartos');
     expect(c.snap.data.typology).toBe('DOIS_Q');
     await c.say('uns 7 mil');
-    expect(c.text).toContain('Certo, renda de R$ 7.000/mês');
+    expect(c.text).toMatch(/, renda de R\$ 7\.000\/mês\./);
     await c.say('clt');
     await c.say('05/03/1990');
     await c.say('800');
@@ -57,7 +57,7 @@ describe('fluxo de coleta', () => {
     await c.say('não');
     await c.say('40 mil');
     expect(c.snap.state).toBe('INSTALLMENT');
-    expect(c.text).toContain('gostaria de destinar');
+    expect(c.text).toContain('se sente à vontade');
     await c.say('2 mil');
     expect(c.snap.data.desiredInstallment).toBe(2000);
     expect(c.text).toContain('parcela de até R$ 2.000/mês');

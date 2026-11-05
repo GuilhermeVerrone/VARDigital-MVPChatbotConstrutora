@@ -2,8 +2,10 @@ import type { ChannelAdapter } from '@mvp/channel';
 import { ChannelError } from '@mvp/channel';
 import { CrmError, type CrmAdapter } from '@mvp/crm';
 import { assignBroker, loadSimulationBundle, markDelivered, scoreClassFor, setJobPayload, type Db, type DeliveryJobItem, type SimulationBundle } from '@mvp/db';
-import { buildSimulationPdf, dossierCard, handoffCard, pdfFileName, type HandoffHistoryEntry } from '@mvp/presentation';
-import { toView } from './view';
+import {
+  buildPaymentPdf, buildSimulationPdf, dossierCard, handoffCard, paymentDossierCard, pdfFileName, type HandoffHistoryEntry,
+} from '@mvp/presentation';
+import { toPaymentView, toView } from './view';
 
 // Entregas de saída (Fase 6): sincronizar o lead com o CRM e avisar o corretor com o dossiê e o PDF.
 // Cada uma é um job da fila (delivery_jobs): se falhar, volta com espera e tenta de novo, sem
@@ -34,6 +36,27 @@ const jidOf = (phone: string) => `${phone}@s.whatsapp.net`;
 function crmSummary(b: SimulationBundle): Record<string, unknown> {
   const s = b.simulation;
   const n = (v: { toNumber(): number } | null) => (v === null ? null : v.toNumber());
+  if (b.payment) {
+    // Forma de pagamento (V2): o modo, o plano da entrada e a versão da condição comercial usada.
+    const { input, result } = b.payment;
+    const plan = result.plan;
+    return {
+      verdict: s.verdict,
+      paymentMode: s.paymentMode,
+      development: b.development?.name ?? null,
+      unit: b.unit?.code ?? null,
+      propertyValue: n(s.propertyValue),
+      cashNow: input.mode === 'A_VISTA' ? null : input.cashNow,
+      downPayment: result.downPayment?.chosen ?? null,
+      amountToPay: result.cash?.amountToPay ?? null,
+      downPaymentPlan: plan
+        ? { act: plan.act, monthly: { count: plan.monthly.count, amount: plan.monthly.amount }, balloons: { count: plan.balloons.count, amount: plan.balloons.amount }, keys: plan.keys.amount }
+        : null,
+      balanceAtKeys: result.balanceAtKeys,
+      conditionVersion: result.conditionVersion,
+      generatedAt: s.generatedAt.toISOString(),
+    };
+  }
   return {
     verdict: s.verdict,
     development: b.development?.name ?? null,
@@ -99,15 +122,17 @@ export function createDeliveryHandler(deps: DeliveryDeps) {
     const known = phone ? await db.crmContact.findUnique({ where: { phone } }) : null;
     const knownBefore = known !== null && known.createdAt < b.simulation.generatedAt;
 
-    const view = toView(phone && !b.lead.phone ? { ...b, lead: { ...b.lead, phone } } : b);
+    const withPhone = phone && !b.lead.phone ? { ...b, lead: { ...b.lead, phone } } : b;
+    const view = b.payment ? toPaymentView(withPhone) : toView(withPhone);
     const chatId = jidOf(broker.phone);
     if (!payload.cardSent) {
-      await channel.sendText(chatId, dossierCard(view, { update, existingOwner: knownBefore && !update ? broker.name : null, ...(deps.contactWithinMinutes ? { contactWithinMinutes: deps.contactWithinMinutes } : {}) }));
+      const cardOpts = { update, existingOwner: knownBefore && !update ? broker.name : null, ...(deps.contactWithinMinutes ? { contactWithinMinutes: deps.contactWithinMinutes } : {}) };
+      await channel.sendText(chatId, 'kind' in view ? paymentDossierCard(view, cardOpts) : dossierCard(view, cardOpts));
       // Se o PDF falhar, a nova tentativa não repete o card.
       await setJobPayload(db, job.id, { ...payload, cardSent: true });
     }
     await channel.sendDocument(chatId, {
-      data: await buildSimulationPdf(view),
+      data: 'kind' in view ? await buildPaymentPdf(view) : await buildSimulationPdf(view),
       fileName: pdfFileName(view),
       mimeType: 'application/pdf',
       caption: update ? 'PDF da simulação atualizada' : 'PDF da simulação',

@@ -15,6 +15,8 @@ export const formatPhone = (e164: string): string => {
   return n.length === 11 ? `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}` : `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
 };
 
+const ACK_OPENERS = ['Certo', 'Anotado', 'Perfeito', 'Beleza', 'Entendi'] as const;
+
 export const T = {
   greetingAndConsent: (development: string) =>
     `Olá! Sou o assistente virtual da construtora e vou te ajudar a fazer uma simulação de financiamento do ${development}. É rápido, leva uns 5 minutos.\n\n` +
@@ -53,7 +55,8 @@ export const T = {
   correctionMenu: { title: 'O que você quer corrigir?', footer: 'Responda com o número ou o nome do item.' },
   handoffOffer: 'Estou com dificuldade de entender. Quer que eu chame um corretor para te ajudar? (sim/não)',
 
-  ack: (text: string) => `Certo, ${text}.`,
+  // A confirmação varia de uma etapa para outra (sempre a mesma para o mesmo texto: o fluxo é reproduzível).
+  ack: (text: string) => `${ACK_OPENERS[[...text].reduce((n, c) => n + c.charCodeAt(0), 0) % ACK_OPENERS.length]}, ${text}.`,
   reask: (hint: string) => `Não consegui entender. ${hint}`,
   incomeZero: 'A renda precisa ser maior que zero. Qual a renda bruta mensal?',
   underage: 'Para financiar, é preciso ter 18 anos ou mais. Confere a data de nascimento? Ex.: 05/03/1990',
@@ -88,6 +91,10 @@ export const T = {
   },
   askAdjustDown: (current: number) =>
     `Quanto você consegue colocar de entrada? Hoje considerei ${brl(current)}, fora o FGTS. Pode responder, por exemplo, *80 mil*.`,
+  askAdjustAct: (current: number, installments: boolean) =>
+    `Quanto você consegue ${installments ? 'dar de ato' : 'colocar de entrada'} agora? Hoje considerei ${brl(current)}. Pode responder, por exemplo, *30 mil*.`,
+  askAdjustBalloons: 'Os reforços são parcelas um pouco maiores no meio do caminho, que deixam as mensais mais leves. Você topa pagar reforços? (sim/não)',
+  askAdjustUnit: 'Qual outro tipo de unidade você quer ver?',
   askAdjustTerm: 'Em quanto tempo você gostaria de pagar o financiamento? Por exemplo, *30 anos* ou *360 meses*. Respeito o limite permitido pela sua idade e pelo banco.',
   termRange: 'O prazo precisa ficar entre 1 e 50 anos. Por exemplo, *30 anos* ou *360 meses*.',
   backToMenu: 'Sem problema, voltando às opções:',

@@ -191,6 +191,8 @@ export interface PaymentSimulationChoices {
   desiredDownPayment?: number;
   system?: 'SAC' | 'PRICE';
   desiredTermMonths?: number;
+  /** true = não estimar o financiamento do saldo, mesmo com a condição ligada (etapa desligada no painel). */
+  skipBankEstimate?: boolean;
 }
 
 type PaymentLead = Pick<Lead, 'birthDate'>;
@@ -228,7 +230,7 @@ export function buildPaymentInput(args: {
 
   // A estimativa do financiamento do saldo é opcional (D10): só pede data de nascimento se estiver ligada.
   let financing: FinancingProfile | null = null;
-  if (condition.bankEstimate.enabled) {
+  if (condition.bankEstimate.enabled && !choices.skipBankEstimate) {
     if (!p) missing.push('financialProfile');
     else {
       const hasCo = p.coApplicantIncome !== null;
@@ -355,9 +357,9 @@ export async function runAndRecordPaymentSimulation(db: Db, args: RunPaymentSimu
  * Unidade usada na simulação de quem escolheu uma tipologia: a de menor preço disponível. É um
  * valor de referência (o lead não escolheu uma unidade específica) e a mensagem diz isso.
  */
-export async function pickUnitForTypology(db: Db, typology: string): Promise<Unit | null> {
+export async function pickUnitForTypology(db: Db, typology: string, developmentId?: string): Promise<Unit | null> {
   return db.unit.findFirst({
-    where: { typology, status: 'AVAILABLE', development: { active: true } },
+    where: { typology, status: 'AVAILABLE', development: { active: true, ...(developmentId ? { id: developmentId } : {}) } },
     orderBy: [{ price: 'asc' }, { code: 'asc' }],
   });
 }

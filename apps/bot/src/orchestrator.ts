@@ -1,20 +1,22 @@
 import { createHmac } from 'node:crypto';
 import { canonicalPhone, type ChannelAdapter, type InboundMessage } from '@mvp/channel';
 import {
-  applyInterpretation, CONSENT_TEXT_VERSION, enterResult, failSimulation, handleNonText, initialSnapshot, interpretStep, questionFor,
-  replyPreview, resumeAfterHandoff, T, withResume,
-  type Collected, type Effect, type FlowEnv, type Reply, type Snapshot, type StepResult,
+  applyInterpretation, bankEstimateOn, CONSENT_TEXT_VERSION, enterResult, failSimulation, formSnapshot, handleNonText, initialSnapshot, interpretStep,
+  isPaymentFlow, questionFor, replyPreview, resumeAfterHandoff, T, withResume,
+  type Collected, type Effect, type FlowEnv, type FlowSettings, type Reply, type Snapshot, type StepResult,
 } from '@mvp/conversation';
 import {
-  deleteSession, eraseLead, findReleasableHandoff, isSimulationDataError, listActiveTypologies, listOpenHandoffs, loadChat, loadSimulationBundle,
-  MissingSimulationDataError, pickUnitForTypology, releaseHandoff, runAndRecordSimulation, saveSession, saveTurn, scoreClassFor, startConversation,
-  takeHandoff, todayIso,
-  type Broker, type ChatIdentity, type Db, type LoadedChat, type TurnWrites,
+  deleteSession, eraseLead, extractContactCode, findFormLead, findReleasableHandoff, getPublishedFlowConfig, isSimulationDataError, listActiveTypologies,
+  listDevelopmentCatalog, listOpenHandoffs, loadChat, loadSimulationBundle, MissingSimulationDataError, pickUnitForTypology, releaseHandoff,
+  runAndRecordPaymentSimulation, runAndRecordSimulation, saveSession, saveTurn, scoreClassFor, startConversation, startFormConversation, takeHandoff, todayIso,
+  type Broker, type ChatIdentity, type Db, type FormLead, type LoadedChat, type TurnWrites,
 } from '@mvp/db';
-import { buildSimulationPdf, dateTimeBr, pdfFileName, phoneBr, resultMessages } from '@mvp/presentation';
+import {
+  buildPaymentPdf, buildSimulationPdf, dateTimeBr, paymentResultMessages, pdfFileName, phoneBr, resultMessages,
+} from '@mvp/presentation';
 import { safeError } from './lib/mask';
 import { B, parseBrokerCommand, type BrokerCommand } from './broker-commands';
-import { toView } from './view';
+import { toPaymentView, toView } from './view';
 import { nameTerms, type CallBudget, type InterpretDeps } from '@mvp/llm';
 import { parseCommand, parseYesNo } from '@mvp/parsers';
 
@@ -84,6 +86,7 @@ function toWrites(effects: Effect[], data: Collected, turn: TurnContext): TurnWr
   const w: TurnWrites = { at: new Date(turn.at) };
   for (const e of effects) {
     if (e.type === 'set_lead') w.lead = { ...w.lead, ...e.fields };
+    else if (e.type === 'contact_confirmed') w.contactConfirmed = true;
     else if (e.type === 'lead_status') w.status = e.status;
     else if (e.type === 'handoff') {
       w.handoff = true;
@@ -92,8 +95,13 @@ function toWrites(effects: Effect[], data: Collected, turn: TurnContext): TurnWr
     }
     else if (e.type === 'audit') (w.audit ??= []).push(e.action);
     else if (e.type === 'collected') {
+      // Quem só tem uma forma de pagamento sem renda (à vista, ou entrada de uma vez sem estimativa do banco) não tem perfil financeiro.
+      if (data.developmentId) w.lead = { ...w.lead, developmentId: data.developmentId };
+      if (data.income === undefined) continue;
       w.profile = {
-        income: data.income!, incomeType: data.incomeType as never, debts: data.debts ?? 0, downPayment: data.downPayment ?? 0,
+        ...(data.cashNow !== undefined ? { cashNow: data.cashNow } : {}),
+        ...(data.acceptsBalloons !== undefined ? { acceptsBalloons: data.acceptsBalloons } : {}),
+        income: data.income!, incomeType: data.incomeType as never, debts: data.debts ?? 0, downPayment: data.cashNow ?? data.downPayment ?? 0,
         fgtsBalance: data.hasFgts ? (data.fgtsBalance ?? 0) : null, fgtsMonths: data.hasFgts ? (data.fgtsMonths ?? 0) : null,
         ownsProperty: data.ownsProperty ?? false, firstFinancing: data.firstFinancing ?? true,
         co: data.hasCoApplicant
@@ -136,15 +144,49 @@ export function createOrchestrator(opts: OrchestratorOptions) {
     return devCache.value;
   }
 
+  // Catálogo (empreendimentos, tipologias e regras comerciais) e fluxo publicado: lidos do banco, em cache curto como o resto.
+  let catalogCache: { at: number; day: string; value: Awaited<ReturnType<typeof listDevelopmentCatalog>> } | null = null;
+  async function catalog() {
+    const day = todayIso(now());
+    if (!catalogCache || catalogCache.day !== day || Date.now() - catalogCache.at > 60_000) {
+      catalogCache = { at: Date.now(), day, value: await listDevelopmentCatalog(db, day) };
+    }
+    return catalogCache.value;
+  }
+  let flowCache: { at: number; value: FlowSettings | undefined } | null = null;
+  async function flowSettings(): Promise<FlowSettings | undefined> {
+    if (!flowCache || Date.now() - flowCache.at > 60_000) {
+      const published = await getPublishedFlowConfig(db);
+      flowCache = {
+        at: Date.now(),
+        value: published
+          ? { texts: published.content.texts, optionalSteps: published.content.optionalSteps, firstContact: published.content.firstContact }
+          : undefined,
+      };
+    }
+    return flowCache.value;
+  }
+
   async function envFor(msg: InboundMessage): Promise<FlowEnv> {
-    const dev = await development();
+    const [dev, cat, flow] = await Promise.all([development(), catalog(), flowSettings()]);
     return {
       today: todayIso(now()),
       developmentName: dev.developmentName,
       typologies: dev.typologies.map((t) => ({ id: t, label: t })),
       channelPhone: phoneOf(msg),
+      developments: cat.map((c) => ({
+        id: c.id,
+        name: c.name,
+        typologies: c.typologies.map((t) => ({ id: t, label: t })),
+        ...(c.sales ? { sales: c.sales } : {}),
+      })),
+      ...(flow ? { flow } : {}),
     };
   }
+
+  /** O empreendimento da conversa: o escolhido ou, havendo só um, esse. */
+  const developmentIdOf = (env: FlowEnv, data: Collected): string | undefined =>
+    data.developmentId ?? (env.developments?.length === 1 ? env.developments[0]!.id : undefined);
 
   const replyText = (r: Reply) => ('list' in r ? r.list.title : replyPreview(r));
 
@@ -153,8 +195,9 @@ export function createOrchestrator(opts: OrchestratorOptions) {
     await sleep(Math.min(maxTyping, 400 + replyText(r).length * 20));
     if ('pdf' in r) {
       // O PDF é gerado agora, da simulação gravada: os valores são os que o motor calculou.
-      const view = toView(await loadSimulationBundle(db, r.pdf.simulationId));
-      const data = await buildSimulationPdf(view);
+      const bundle = await loadSimulationBundle(db, r.pdf.simulationId);
+      const view = bundle.payment ? toPaymentView(bundle) : toView(bundle);
+      const data = 'kind' in view ? await buildPaymentPdf(view) : await buildSimulationPdf(view);
       await channel.sendDocument(chatId, { data, fileName: pdfFileName(view), mimeType: 'application/pdf', caption: r.pdf.caption });
     } else if ('text' in r) {
       await channel.sendText(chatId, r.text);
@@ -191,9 +234,42 @@ export function createOrchestrator(opts: OrchestratorOptions) {
     let result: StepResult;
     let writes: TurnWrites | undefined;
     try {
-      const unit = snap.data.typology ? await pickUnitForTypology(db, snap.data.typology) : null;
+      const unit = snap.data.typology ? await pickUnitForTypology(db, snap.data.typology, developmentIdOf(env, snap.data)) : null;
       if (!unit) throw new MissingSimulationDataError(['unit']);
       const adjust = snap.adjust ?? {};
+      if (isPaymentFlow(env, snap.data) && snap.data.paymentMode) {
+        // Formas de pagamento (V2): condição comercial vigente do empreendimento.
+        const mode = snap.data.paymentMode;
+        const { simulation, result: pay } = await runAndRecordPaymentSimulation(db, {
+          leadId: chat.leadId,
+          unitId: unit.id,
+          mode,
+          referenceDate: env.today,
+          choices: {
+            ...(mode !== 'A_VISTA' ? { cashNow: adjust.cashNow ?? snap.data.cashNow ?? 0 } : {}),
+            ...(snap.data.desiredInstallment ? { desiredInstallment: snap.data.desiredInstallment } : {}),
+            ...(mode === 'ENTRADA_PARCELADA' ? { acceptsBalloons: adjust.acceptsBalloons ?? snap.data.acceptsBalloons ?? false } : {}),
+            ...(!bankEstimateOn(env, snap.data) ? { skipBankEstimate: true } : {}),
+          },
+        });
+        const view = toPaymentView(await loadSimulationBundle(db, simulation.id));
+        const notified = (await db.deliveryJob.count({ where: { kind: 'BROKER_NOTIFY', simulation: { leadId: chat.leadId } } })) > 0;
+        result = enterResult(snap, env, {
+          simulationId: simulation.id,
+          messages: paymentResultMessages(view),
+          brokerAlreadyNotified: notified,
+          at,
+          next: mode === 'A_VISTA' ? 'CASH_OFFER' : 'RESULT',
+        });
+        writes = {
+          status: 'SIMULATED',
+          scoreClass: scoreClassFor(pay.verdict),
+          jobs: [
+            { kind: 'CRM_SYNC', simulationId: simulation.id },
+            { kind: 'BROKER_NOTIFY', simulationId: simulation.id, payload: { update: notified } },
+          ],
+        };
+      } else {
       const { simulation, result: sim } = await runAndRecordSimulation(db, {
         leadId: chat.leadId,
         unitId: unit.id,
@@ -217,6 +293,7 @@ export function createOrchestrator(opts: OrchestratorOptions) {
           { kind: 'BROKER_NOTIFY', simulationId: simulation.id, payload: { update: notified } },
         ],
       };
+      }
     } catch (err) {
       // Dado que falta ou parâmetro fora de vigência não se resolve repetindo: oferece o corretor.
       if (!isSimulationDataError(err)) throw err;
@@ -279,7 +356,10 @@ export function createOrchestrator(opts: OrchestratorOptions) {
 
     // Aceitou: a partir daqui há lead, consentimento versionado e conversa.
     const at = now();
-    const base = initialSnapshot();
+    const fresh = initialSnapshot();
+    // Com um só empreendimento ativo, ele já é o da conversa (não há o que perguntar).
+    const onlyDevelopment = developmentIdOf(env, fresh.data);
+    const base: Snapshot = onlyDevelopment ? { ...fresh, data: { ...fresh.data, developmentId: onlyDevelopment } } : fresh;
     const q = questionFor(base.state, base, env);
     const replies: Reply[] = [{ text: T.consentThanks }, ...q];
     const snap: Snapshot = {
@@ -292,6 +372,45 @@ export function createOrchestrator(opts: OrchestratorOptions) {
       ...who, textVersion: CONSENT_TEXT_VERSION, textSnapshot: T.greetingAndConsent(env.developmentName), state: snap.state, at, ...persistable(snap),
     });
     await flush(ids, snap, msg.chatId);
+  }
+
+  // ---------- lead do formulário do site (double opt-in) ----------
+
+  function formData(form: FormLead, env: FlowEnv): Collected {
+    // E-mail ausente no formulário vale "pulou": o bot não pergunta de novo o que já veio (ou o que o lead escolheu não dar).
+    const data: Collected = { email: form.email ?? null };
+    if (form.name) data.name = form.name;
+    if (form.phone) data.phone = form.phone;
+    const developmentId = form.developmentId ?? developmentIdOf(env, {});
+    if (developmentId) data.developmentId = developmentId;
+    return data;
+  }
+
+  /**
+   * Primeira mensagem de quem preencheu o formulário: abre a conversa em CONTACT_CONFIRM, com os dados do
+   * formulário já no contexto. Se o lead escreveu primeiro com o código (ELV-xxxx do botão wa.me), o
+   * pedido está confirmado e a conversa já segue para a primeira pergunta; senão a mensagem dele é a
+   * resposta à pergunta de confirmação. O consentimento é o do próprio formulário (WEB).
+   */
+  async function fromForm(msg: InboundMessage, who: ChatIdentity, form: FormLead, env: FlowEnv, viaCode: boolean): Promise<void> {
+    const at = now();
+    const snap0 = formSnapshot(formData(form, env));
+    const { conversationId } = await startFormConversation(db, {
+      leadId: form.leadId, chatId: msg.chatId, state: snap0.state, ...persistable(snap0), confirmed: false, at,
+    });
+    await deleteSession(db, who.chatHash);
+    const chat: ConversationChat = {
+      kind: 'conversation', leadId: form.leadId, conversationId, leadStatus: 'IN_PROGRESS', state: snap0.state,
+      context: persistable(snap0).context, history: [], handoff: false, updatedAt: at,
+    };
+    if (!viaCode) return inConversation(msg, chat, env);
+
+    const meta = { messageId: msg.externalId, input: msg.type === 'text' ? msg.text : null, at: msg.receivedAt };
+    const result = applyInterpretation(snap0, { kind: 'answer', fields: { contactConfirmed: true }, source: 'parser' }, env, meta);
+    const writes = toWrites(result.effects, result.snapshot.data, { ...chat, at: meta.at });
+    await saveTurn(db, { conversationId, leadId: form.leadId, state: result.snapshot.state, ...persistable(result.snapshot), writes });
+    opts.log?.info?.({ conversationId, leadId: form.leadId, from: snap0.state, to: result.snapshot.state, via: 'code' }, 'turno da conversa');
+    await flush(chat, result.snapshot, msg.chatId);
   }
 
   // ---------- conversa em andamento ----------
@@ -439,6 +558,12 @@ export function createOrchestrator(opts: OrchestratorOptions) {
     const [loaded, env] = await Promise.all([loadChat(db, who), envFor(msg)]);
     await bestEffort(channel.markRead(msg.chatId, [msg.externalId]));
     if (loaded.kind === 'conversation') return inConversation(msg, loaded, env);
+    // Quem preencheu o formulário do site não passa pelo consentimento do chat: já consentiu lá.
+    if (!(loaded.kind === 'session' && loaded.state === 'OPTED_OUT')) {
+      const code = msg.type === 'text' && msg.text ? extractContactCode(msg.text) : null;
+      const form = await findFormLead(db, { chatId: msg.chatId, phone: who.phone }, code);
+      if (form) return fromForm(msg, who, form, env, code !== null && code === form.contactCode);
+    }
     return preConsent(msg, who, loaded, env);
   };
 }
