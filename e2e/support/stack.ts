@@ -15,6 +15,8 @@ export const OUT = join(ROOT, 'e2e/.output');
 /** Telefones usados nos roteiros; todos precisam estar em ALLOWED_PHONES do bot. */
 export const LEAD_PHONES = ['5541988880001', '5541988880002', '5541988880003', '5541988880004', '5541988880005', '5541988880006'];
 const BROKER_PHONES = ['5500900000011', '5500900000012', '5500900000013'];
+/** Telefones da carga de memória (load.spec.ts). */
+export const LOAD_PHONES = Array.from({ length: 20 }, (_, i) => `55419000001${String(i).padStart(2, '0')}`);
 
 const WEBHOOK_SECRET = 'e2e-webhook-secret-0123456789';
 const FAKE_KEY = 'e2e-api-key';
@@ -149,7 +151,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       WA_AKG_BASE_URL: `http://127.0.0.1:${fakePort}`,
       WA_AKG_API_KEY: FAKE_KEY,
       WA_AKG_SESSION_ID: SESSION,
-      ALLOWED_PHONES: [...LEAD_PHONES, ...BROKER_PHONES].join(','),
+      ALLOWED_PHONES: [...LEAD_PHONES, ...BROKER_PHONES, ...LOAD_PHONES].join(','),
       CHAT_HASH_SECRET: 'e2e-chat-hash-secret-0123456789',
       LLM_ENABLED: 'false', // os roteiros usam só os parsers: resultado igual em qualquer máquina, sem chave nem custo
       TYPING_MAX_MS: '0',
@@ -161,7 +163,9 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       RATE_LIMIT_PER_MIN: '0',
       PROMPTS_DIR: join(ROOT, 'prompts'),
     };
-    procs.push(run('bot', join(ROOT, 'apps/bot/node_modules/.bin/tsx'), ['src/main.ts'], join(ROOT, 'apps/bot'), botEnv));
+    // O bot roda pelo mesmo bundle da imagem Docker (esbuild), com o teto de heap do compose: a memória medida é a do produto.
+    sh('pnpm', ['--filter', '@mvp/bot', 'build'], ROOT, {}, 'build-bot');
+    procs.push(run('bot', 'node', ['--max-old-space-size=160', '--enable-source-maps', 'dist/main.mjs'], join(ROOT, 'apps/bot'), botEnv));
     procs.push(run('site', join(ROOT, 'apps/site/node_modules/.bin/next'), ['start', '-p', String(sitePort), '-H', '127.0.0.1'], join(ROOT, 'apps/site'), { ...siteEnv, NODE_ENV: 'production' }));
     procs.push(run('painel', join(ROOT, 'apps/painel/node_modules/.bin/next'), ['start', '-p', String(painelPort), '-H', '127.0.0.1'], join(ROOT, 'apps/painel'), { ...painelEnv, NODE_ENV: 'production' }));
 
@@ -189,6 +193,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       E2E_WA_SESSION: SESSION,
       E2E_DATABASE_URL: dbUrl,
       E2E_LEAD_PHONES: LEAD_PHONES.join(','),
+      E2E_LOAD_PHONES: LOAD_PHONES.join(','),
     });
   } catch (err) {
     await teardown();
