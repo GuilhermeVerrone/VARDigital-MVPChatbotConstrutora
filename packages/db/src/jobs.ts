@@ -7,12 +7,8 @@ import type { Prisma } from './generated/prisma/client';
 
 export type JobKind = 'CRM_SYNC' | 'BROKER_NOTIFY' | 'HANDOFF_NOTIFY' | 'FIRST_CONTACT';
 
-/**
- * Tipos que o worker reserva quando não pede outros. FIRST_CONTACT (1ª mensagem do formulário do site,
- * V2) fica fora até o worker de entrega ganhar o tratamento dele (Fase 13): enfileirado antes disso,
- * espera em vez de falhar.
- */
-export const DEFAULT_JOB_KINDS: readonly JobKind[] = ['CRM_SYNC', 'BROKER_NOTIFY', 'HANDOFF_NOTIFY'];
+/** Tipos que o worker reserva quando não pede outros (FIRST_CONTACT é a 1ª mensagem do formulário do site, Fase 13). */
+export const DEFAULT_JOB_KINDS: readonly JobKind[] = ['CRM_SYNC', 'BROKER_NOTIFY', 'HANDOFF_NOTIFY', 'FIRST_CONTACT'];
 
 export interface EnqueueJobArgs {
   kind: JobKind;
@@ -116,6 +112,18 @@ export async function failJob(db: Db, id: string, opts: { error: string; retryAt
       lockedUntil: null,
       ...(opts.retryAt ? { availableAt: opts.retryAt } : {}),
     },
+  });
+  return count === 1;
+}
+
+/**
+ * Adia o job sem gastar tentativa: a reserva contou uma, e esperar a janela de horário ou o limite por
+ * hora não é falha (o job não pode morrer por ter esperado a noite toda).
+ */
+export async function deferJob(db: Db, id: string, until: Date, reason: string): Promise<boolean> {
+  const { count } = await db.deliveryJob.updateMany({
+    where: { id, status: 'PROCESSING' },
+    data: { status: 'PENDING', availableAt: until, lockedUntil: null, attempts: { decrement: 1 }, lastError: reason.slice(0, 1000) },
   });
   return count === 1;
 }

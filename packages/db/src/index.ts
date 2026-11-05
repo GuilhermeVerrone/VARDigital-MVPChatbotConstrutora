@@ -5,6 +5,7 @@ export {
   completeJob,
   DEFAULT_JOB_KINDS,
   enqueueJob,
+  deferJob,
   failJob,
   requeueDeadJob,
   setJobPayload,
