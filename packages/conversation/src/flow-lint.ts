@@ -136,7 +136,9 @@ export function scanVariables(text: string): { used: string[]; stray: boolean; m
 }
 
 function lintText(path: string, key: TextKey, text: string, out: FlowIssue[]): void {
-  const err = (message: string) => out.push({ severity: 'error', path, message });
+  const err = (message: string): void => {
+    out.push({ severity: 'error', path, message });
+  };
   if (!text.trim()) return err('O texto não pode ficar vazio.');
   if (text.length > MAX_TEXT_LENGTH) err(`O texto passa de ${MAX_TEXT_LENGTH} caracteres.`);
   const allowed = ALLOWED_VARIABLES[key] ?? [];
