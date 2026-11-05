@@ -1,4 +1,25 @@
 import {
+  initialSnapshot, lintFlowContent, flowErrors, resumeAfterHandoff, type FlowEnv, type FlowIssue, type FlowSettings, type Snapshot,
+} from '@mvp/conversation';
+import {
+  assignLeadBroker,
+  discardPanelFlowDraft,
+  eraseLead,
+  findLeadHandoff,
+  FlowConfigError,
+  getFlowOverview,
+  getPanelDashboard,
+  getPanelLead,
+  getPublishedFlowConfig,
+  listDevelopmentCatalog,
+  listPanelLeads,
+  publishFlowConfig,
+  releaseLeadHandoff,
+  requireLeadInScope,
+  revertFlowConfig,
+  saveFlowDraft,
+  takeLeadHandoff,
+  type LeadFilter,
   createDevelopment,
   diffSalesConditions,
   dateFromIso,
@@ -22,7 +43,9 @@ import {
 } from '@mvp/db/panel';
 import { offeredModes, parseSalesCondition, type PaymentMode, type SalesCondition } from '@mvp/simulation';
 import { valuesToCondition } from './condition-form';
-import { assertCan, type PanelUser } from './permissions';
+import { fetchWhatsappStatus, whatsappEnvFromProcess } from './whatsapp';
+import { valuesToContent, issuesByField, type FlowFormValues } from './flow-form';
+import { assertCan, leadScope, type PanelUser } from './permissions';
 
 // Serviços do painel: cada função confere a permissão do papel ANTES de tocar no banco e grava a
 // auditoria com o id do usuário. As Server Actions são finas: leem o formulário e chamam estas.
@@ -200,3 +223,161 @@ export async function previewConditionService(ctx: ServiceCtx, input: PreviewInp
   }
   return { referenceDate, conditionVersion: modes.find((m) => m.preview)?.preview?.conditionVersion ?? null, modes, notOffered: all.filter((m) => !offered.includes(m)) };
 }
+
+// -- Fluxo do bot -----------------------------------------------------------------------------------
+
+/** O fluxo como o bot o enxerga (textos, etapas opcionais e 1º contato). */
+export const toFlowSettings = (c: { texts: Record<string, string>; optionalSteps: Record<string, boolean>; firstContact: string | null }): FlowSettings => ({
+  texts: c.texts, optionalSteps: c.optionalSteps, firstContact: c.firstContact,
+});
+
+/** O ambiente da conversa (mesmo desenho do orquestrador do bot), com o fluxo que o chamador escolher. */
+export async function buildFlowEnv(db: Db, today: string, flow: FlowSettings | undefined, channelPhone: string | null = null): Promise<FlowEnv> {
+  const catalog = await listDevelopmentCatalog(db, today);
+  const first = catalog[0];
+  return {
+    today,
+    developmentName: first?.name ?? 'Elevare',
+    typologies: (first?.typologies ?? []).map((t) => ({ id: t, label: t })),
+    channelPhone,
+    developments: catalog.map((c) => ({ id: c.id, name: c.name, typologies: c.typologies.map((t) => ({ id: t, label: t })), ...(c.sales ? { sales: c.sales } : {}) })),
+    ...(flow ? { flow } : {}),
+  };
+}
+
+const flowFields = (issues: readonly FlowIssue[]) => issuesByField(flowErrors(issues));
+
+export const flowService = {
+  overview: async (ctx: ServiceCtx) => {
+    assertCan(ctx.user, 'flow:read');
+    return getFlowOverview(ctx.db);
+  },
+  /** Valida o formulário sem gravar (para mostrar os problemas enquanto o texto é editado). */
+  check: (ctx: ServiceCtx, values: FlowFormValues): FlowIssue[] => {
+    assertCan(ctx.user, 'flow:read');
+    return lintFlowContent(valuesToContent(values));
+  },
+  /** Salva o rascunho. Problemas de texto NÃO impedem salvar (é trabalho em andamento); impedem publicar. */
+  saveDraft: async (ctx: ServiceCtx, values: FlowFormValues) => {
+    assertCan(ctx.user, 'flow:write');
+    const content = valuesToContent(values);
+    const draft = await saveFlowDraft(ctx.db, { actor: ctx.user.id, content });
+    return { draft, issues: lintFlowContent(draft.content) };
+  },
+  discardDraft: async (ctx: ServiceCtx) => {
+    assertCan(ctx.user, 'flow:write');
+    await discardPanelFlowDraft(ctx.db, { actor: ctx.user.id });
+  },
+  /** Publica o RASCUNHO SALVO (não o que está na tela). Variável inválida ou palavra proibida: não publica. */
+  publish: async (ctx: ServiceCtx, reason: string) => {
+    assertCan(ctx.user, 'flow:write');
+    const { draft } = await getFlowOverview(ctx.db);
+    if (!draft) throw new PanelValidationError({ _: 'Não há rascunho para publicar. Salve as alterações primeiro.' });
+    const issues = lintFlowContent(draft.content);
+    const errors = flowErrors(issues);
+    if (errors.length > 0) {
+      throw new PanelValidationError({ ...flowFields(issues), _: `Não publicado: ${errors.length} problema${errors.length > 1 ? 's' : ''} no texto. Corrija e salve de novo.` });
+    }
+    if (!reason.trim()) throw new PanelValidationError({ reason: 'Informe o motivo da publicação' });
+    try {
+      return await publishFlowConfig(ctx.db, draft.id, { actor: ctx.user.id, reason, now: new Date() });
+    } catch (err) {
+      if (err instanceof FlowConfigError) throw new PanelValidationError({ _: err.message });
+      throw err;
+    }
+  },
+  revert: async (ctx: ServiceCtx, reason: string) => {
+    assertCan(ctx.user, 'flow:write');
+    if (!reason.trim()) throw new PanelValidationError({ reason: 'Informe o motivo da reversão' });
+    try {
+      return await revertFlowConfig(ctx.db, { actor: ctx.user.id, reason, now: new Date() });
+    } catch (err) {
+      if (err instanceof FlowConfigError) throw new PanelValidationError({ _: err.message });
+      throw err;
+    }
+  },
+  published: async (ctx: ServiceCtx) => {
+    assertCan(ctx.user, 'flow:read');
+    return getPublishedFlowConfig(ctx.db);
+  },
+};
+
+// -- Leads ------------------------------------------------------------------------------------------
+
+export const leadsService = {
+  list: async (ctx: ServiceCtx, filter: LeadFilter) => {
+    assertCan(ctx.user, 'leads:read');
+    return listPanelLeads(ctx.db, filter, leadScope(ctx.user));
+  },
+  get: async (ctx: ServiceCtx, id: string) => {
+    assertCan(ctx.user, 'leads:read');
+    return getPanelLead(ctx.db, id, leadScope(ctx.user));
+  },
+  /** Opções dos filtros da lista (empreendimentos e corretores ativos). */
+  filterOptions: async (ctx: ServiceCtx) => {
+    assertCan(ctx.user, 'leads:read');
+    const [developments, brokers] = await Promise.all([
+      ctx.db.development.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+      ctx.db.broker.findMany({ select: { id: true, name: true, active: true }, orderBy: [{ active: 'desc' }, { name: 'asc' }] }),
+    ]);
+    return { developments, brokers };
+  },
+  dashboard: async (ctx: ServiceCtx) => {
+    assertCan(ctx.user, 'home');
+    return getPanelDashboard(ctx.db, leadScope(ctx.user), new Date());
+  },
+  assign: async (ctx: ServiceCtx, leadId: string, brokerId: string | null) => {
+    assertCan(ctx.user, 'leads:assign');
+    return assignLeadBroker(ctx.db, { actor: ctx.user.id, leadId, brokerId, scope: leadScope(ctx.user) });
+  },
+  /** Assume o handoff como o corretor do usuário. Gestão sem corretor vinculado atribui o lead e o corretor assume. */
+  takeHandoff: async (ctx: ServiceCtx, leadId: string) => {
+    assertCan(ctx.user, 'leads:handoff');
+    if (!ctx.user.brokerId) throw new PanelValidationError({ _: 'Seu usuário não está vinculado a um corretor. Atribua o lead a um corretor.' });
+    return takeLeadHandoff(ctx.db, { actor: ctx.user.id, leadId, brokerId: ctx.user.brokerId, scope: leadScope(ctx.user) });
+  },
+  /**
+   * Devolve a conversa ao bot: calcula a retomada com a MESMA máquina do bot (volta à pergunta em que
+   * o lead estava) e pede ao bot que envie a próxima pergunta ao lead. Gestão pode devolver a conversa
+   * de qualquer corretor; o corretor só a que ele assumiu.
+   */
+  releaseHandoff: async (ctx: ServiceCtx, leadId: string) => {
+    assertCan(ctx.user, 'leads:handoff');
+    const scope = leadScope(ctx.user);
+    const found = await findLeadHandoff(ctx.db, leadId, scope);
+    if (!found) return { ok: false as const, reason: 'no_handoff' as const };
+    const at = new Date();
+    const published = await getPublishedFlowConfig(ctx.db);
+    const env = await buildFlowEnv(ctx.db, ctx.today ?? todayIso(at), published ? toFlowSettings(published.content) : undefined);
+    const saved = (found.context ?? {}) as Partial<Snapshot>;
+    const snap: Snapshot = { ...initialSnapshot(), ...saved, state: found.state as Snapshot['state'], history: Array.isArray(found.history) ? (found.history as Snapshot['history']) : [] };
+    const { snapshot } = resumeAfterHandoff(snap, env, at.toISOString());
+    const { history, ...context } = snapshot;
+    return releaseLeadHandoff(ctx.db, {
+      actor: ctx.user.id,
+      leadId,
+      brokerId: ctx.user.brokerId,
+      force: ctx.user.role !== 'CORRETOR',
+      scope,
+      now: at,
+      next: { state: snapshot.state, context: context as object as never, history: history as object[] as never, leadStatus: snapshot.simulationId ? 'DELIVERED' : 'IN_PROGRESS' },
+      flush: snapshot.outbox.length > 0 && found.chatId !== null,
+    });
+  },
+  /** Apaga o lead e tudo que depende dele (LGPD). Quem pede fica na auditoria; o conteúdo não. */
+  requestErasure: async (ctx: ServiceCtx, leadId: string, confirmation: string) => {
+    assertCan(ctx.user, 'leads:erase');
+    if (confirmation.trim().toUpperCase() !== 'EXCLUIR') throw new PanelValidationError({ confirmation: 'Digite EXCLUIR para confirmar' });
+    await requireLeadInScope(ctx.db, leadId, leadScope(ctx.user));
+    return eraseLead(ctx.db, leadId, { reason: 'titular', actor: ctx.user.id });
+  },
+};
+
+// -- WhatsApp ---------------------------------------------------------------------------------------
+
+export const whatsappService = {
+  status: async (ctx: ServiceCtx) => {
+    assertCan(ctx.user, 'whatsapp:read');
+    return fetchWhatsappStatus(whatsappEnvFromProcess());
+  },
+};

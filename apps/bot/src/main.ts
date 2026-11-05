@@ -94,6 +94,7 @@ const deliveryWorker = createDeliveryWorker({
     channel,
     crm: new SimulatedCrm(db),
     contactWithinMinutes: config.BROKER_CONTACT_MINUTES,
+    flushOutbox: handle.flushLead,
     firstContact: {
       window: {
         startMin: parseClock(config.FIRST_CONTACT_START),

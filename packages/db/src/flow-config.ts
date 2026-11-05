@@ -99,33 +99,61 @@ export interface PublishFlowArgs {
   now: Date;
 }
 
+type Tx = Parameters<Parameters<Db['$transaction']>[0]>[0];
+
+/** Publica `id` dentro da transação do chamador (a trava do fluxo já foi tomada por ele). */
+async function publishInTx(tx: Tx, id: string, a: PublishFlowArgs, action: string): Promise<StoredFlowConfig> {
+  const draft = await requireDraft(tx, id);
+  const content = parseContent(draft.content);
+  const previous = await getPublishedFlowConfig(tx);
+  if (previous && isDeepStrictEqual(previous.content, content)) throw new FlowConfigError('nada mudou em relação à versão publicada');
+
+  if (previous) await tx.flowConfig.update({ where: { id: previous.id }, data: { status: 'RETIRED' } });
+  const published = await tx.flowConfig.update({
+    where: { id },
+    data: { status: 'PUBLISHED', publishedAt: a.now, publishedBy: a.actor, basedOnId: previous?.id ?? draft.basedOnId },
+  });
+  await tx.auditLog.create({
+    data: {
+      actor: a.actor,
+      entity: FLOW_CONFIG_ENTITY,
+      entityId: published.id,
+      action,
+      reason: a.reason,
+      before: previous ? ({ version: previous.version, content: previous.content } as Prisma.InputJsonValue) : undefined,
+      after: { version: published.version, content } as Prisma.InputJsonValue,
+    },
+  });
+  return fromRow(published);
+}
+
 /** Publica o rascunho: aposenta a publicada anterior e grava auditoria (antes/depois). */
 export async function publishFlowConfig(db: Db, id: string, a: PublishFlowArgs): Promise<StoredFlowConfig> {
   if (!a.actor.trim()) throw new FlowConfigError('informe quem está publicando');
   if (!a.reason.trim()) throw new FlowConfigError('informe o motivo da publicação');
   return db.$transaction(async (tx) => {
     await tx.$executeRaw`select pg_advisory_xact_lock(hashtext('flow_configs'))`;
-    const draft = await requireDraft(tx, id);
-    const content = parseContent(draft.content);
-    const previous = await getPublishedFlowConfig(tx);
-    if (previous && isDeepStrictEqual(previous.content, content)) throw new FlowConfigError('nada mudou em relação à versão publicada');
+    return publishInTx(tx, id, a, 'FLOW_PUBLISHED');
+  });
+}
 
-    if (previous) await tx.flowConfig.update({ where: { id: previous.id }, data: { status: 'RETIRED' } });
-    const published = await tx.flowConfig.update({
-      where: { id },
-      data: { status: 'PUBLISHED', publishedAt: a.now, publishedBy: a.actor, basedOnId: previous?.id ?? draft.basedOnId },
+/**
+ * Reverte para a versão anterior: a publicada (que continua no histórico como aposentada) é trocada
+ * por uma NOVA versão com o conteúdo da que ela havia substituído. Versões publicadas são imutáveis,
+ * então reverter nunca reabre uma antiga; um rascunho em edição não é tocado.
+ */
+export async function revertFlowConfig(db: Db, a: PublishFlowArgs): Promise<StoredFlowConfig> {
+  if (!a.actor.trim()) throw new FlowConfigError('informe quem está revertendo');
+  if (!a.reason.trim()) throw new FlowConfigError('informe o motivo da reversão');
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`select pg_advisory_xact_lock(hashtext('flow_configs'))`;
+    const current = await getPublishedFlowConfig(tx);
+    if (!current) throw new FlowConfigError('não há versão publicada para reverter');
+    const target = await tx.flowConfig.findFirst({ where: { status: 'RETIRED', version: { lt: current.version } }, orderBy: { version: 'desc' } });
+    if (!target) throw new FlowConfigError('não há versão anterior para voltar');
+    const copy = await tx.flowConfig.create({
+      data: { content: parseContent(target.content) as Prisma.InputJsonValue, basedOnId: current.id, createdBy: a.actor, note: `reversão para a versão ${target.version}` },
     });
-    await tx.auditLog.create({
-      data: {
-        actor: a.actor,
-        entity: FLOW_CONFIG_ENTITY,
-        entityId: published.id,
-        action: 'FLOW_PUBLISHED',
-        reason: a.reason,
-        before: previous ? ({ version: previous.version, content: previous.content } as Prisma.InputJsonValue) : undefined,
-        after: { version: published.version, content } as Prisma.InputJsonValue,
-      },
-    });
-    return fromRow(published);
+    return publishInTx(tx, copy.id, a, 'FLOW_REVERTED');
   });
 }

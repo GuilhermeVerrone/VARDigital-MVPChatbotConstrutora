@@ -75,9 +75,18 @@ importers:
 
   apps/painel:
     dependencies:
+      '@mvp/conversation':
+        specifier: workspace:*
+        version: link:../../packages/conversation
       '@mvp/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@mvp/parsers':
+        specifier: workspace:*
+        version: link:../../packages/parsers
+      '@mvp/presentation':
+        specifier: workspace:*
+        version: link:../../packages/presentation
       '@mvp/simulation':
         specifier: workspace:*
         version: link:../../packages/simulation
@@ -161,6 +170,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@mvp/presentation':
+        specifier: workspace:*
+        version: link:../presentation
       '@mvp/simulation':
         specifier: workspace:*
         version: link:../simulation
