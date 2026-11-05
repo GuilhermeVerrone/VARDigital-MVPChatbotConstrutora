@@ -313,6 +313,15 @@ export const leadsService = {
     assertCan(ctx.user, 'leads:read');
     return getPanelLead(ctx.db, id, leadScope(ctx.user));
   },
+  /** Opções dos filtros da lista (empreendimentos e corretores ativos). */
+  filterOptions: async (ctx: ServiceCtx) => {
+    assertCan(ctx.user, 'leads:read');
+    const [developments, brokers] = await Promise.all([
+      ctx.db.development.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+      ctx.db.broker.findMany({ select: { id: true, name: true, active: true }, orderBy: [{ active: 'desc' }, { name: 'asc' }] }),
+    ]);
+    return { developments, brokers };
+  },
   dashboard: async (ctx: ServiceCtx) => {
     assertCan(ctx.user, 'home');
     return getPanelDashboard(ctx.db, leadScope(ctx.user), new Date());

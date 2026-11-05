@@ -63,3 +63,4 @@ export {
   type FlowConfigContent, type PublishFlowArgs, type StoredFlowConfig,
 } from './flow-config';
 export { discardPanelFlowDraft, getFlowOverview, saveFlowDraft, type FlowOverview, type FlowVersionRow } from './panel/flow';
+export { toPaymentView, toView } from './views';
