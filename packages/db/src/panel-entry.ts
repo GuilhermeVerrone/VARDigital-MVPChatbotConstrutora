@@ -19,7 +19,7 @@ export {
 } from './sales-conditions/repository';
 export type { ParameterChange } from './parameters/changes';
 export { getFinancingView, financingLineSchema, publishFinancingLine, type FinancingLineForm, type FinancingView } from './panel/financing';
-export { auditFilterOptions, listAuditLogs, recordAudit, type AuditFilter, type AuditRow } from './panel/audit';
+export { auditFilterOptions, listAuditLogs, recordAudit, resolveActorNames, type AuditFilter, type AuditRow } from './panel/audit';
 export {
   createDevelopment,
   developmentFormSchema,

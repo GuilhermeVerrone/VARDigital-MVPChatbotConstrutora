@@ -69,6 +69,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const startOfDay = (iso: string) => new Date(`${iso}T00:00:00-03:00`);
 const endOfDay = (iso: string) => new Date(`${iso}T23:59:59.999-03:00`);
 
+/** Nome dos usuários por id (ids que não são de usuário, como "seed" e "bot", voltam como estão). */
+export async function resolveActorNames(db: Db, actors: string[]): Promise<Map<string, string>> {
+  const ids = [...new Set(actors.filter((a) => UUID.test(a)))];
+  const users = ids.length ? await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : [];
+  const names = new Map(actors.map((a) => [a, a] as const));
+  for (const u of users) names.set(u.id, u.name);
+  return names;
+}
+
 /** Eventos mais novos primeiro, filtráveis; resolve o id do usuário para o nome. */
 export async function listAuditLogs(db: Db, f: AuditFilter = {}): Promise<{ rows: AuditRow[]; next: bigint | null }> {
   const take = Math.min(f.take ?? 50, 200);
@@ -82,9 +91,7 @@ export async function listAuditLogs(db: Db, f: AuditFilter = {}): Promise<{ rows
   };
   const found = await db.auditLog.findMany({ where, orderBy: { id: 'desc' }, take: take + 1 });
   const page = found.slice(0, take);
-  const ids = [...new Set(page.map((r) => r.actor).filter((a) => UUID.test(a)))];
-  const users = ids.length ? await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : [];
-  const names = new Map(users.map((u) => [u.id, u.name]));
+  const names = await resolveActorNames(db, page.map((r) => r.actor));
   return {
     rows: page.map((r) => ({
       id: r.id, at: r.at, actor: r.actor, actorName: names.get(r.actor) ?? r.actor, entity: r.entity, entityId: r.entityId,
