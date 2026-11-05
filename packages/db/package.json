@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./site": "./src/site-entry.ts"
+    "./site": "./src/site-entry.ts",
+    "./panel": "./src/panel-entry.ts"
   },
   "scripts": {
     "generate": "prisma generate",
