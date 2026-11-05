@@ -131,3 +131,11 @@ textarea[name^="text."], textarea[name="firstContact"] { min-height: 72px; }
 .sim-side { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; position: sticky; top: 16px; }
 .sim-side h2 { margin-top: 0; }
 @media (max-width: 960px) { .sim { grid-template-columns: 1fr; } .sim-side { position: static; } }
+
+/* funil do início */
+.funnel { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.funnel li { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(120px, 3fr) minmax(110px, 1fr); gap: 12px; align-items: center; }
+.funnel-bar { height: 14px; background: var(--green-12); border-radius: 99px; overflow: hidden; display: block; }
+.funnel-bar > span { display: block; height: 100%; background: var(--green); border-radius: 99px; }
+.funnel-num { text-align: right; }
+@media (max-width: 960px) { .funnel li { grid-template-columns: 1fr; gap: 4px; } .funnel-num { text-align: left; } }
