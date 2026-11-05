@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { can, isPublicPath, NAV_ITEMS, permissionForPath, ROLE_PERMISSIONS, type Role } from '../src/lib/permissions';
+import { can, isPublicPath, leadScope, NAV_ITEMS, permissionForPath, ROLE_PERMISSIONS, type Role } from '../src/lib/permissions';
 
 const ROLES: Role[] = ['ADMIN', 'GERENTE', 'CORRETOR'];
 
@@ -12,6 +12,11 @@ describe('rotas protegidas por papel', () => {
     ['/financiamento', { ADMIN: true, GERENTE: true, CORRETOR: false }],
     ['/corretores', { ADMIN: true, GERENTE: true, CORRETOR: false }],
     ['/auditoria', { ADMIN: true, GERENTE: true, CORRETOR: false }],
+    ['/leads', { ADMIN: true, GERENTE: true, CORRETOR: true }],
+    ['/leads/abc', { ADMIN: true, GERENTE: true, CORRETOR: true }],
+    ['/fluxo', { ADMIN: true, GERENTE: true, CORRETOR: false }],
+    ['/simulador', { ADMIN: true, GERENTE: true, CORRETOR: false }],
+    ['/whatsapp', { ADMIN: true, GERENTE: true, CORRETOR: false }],
   ];
 
   it.each(matrix)('%s', (path, expected) => {
@@ -28,15 +33,24 @@ describe('rotas protegidas por papel', () => {
     expect(isPublicPath('/auditoria')).toBe(false);
   });
 
-  it('só o admin altera o financiamento; o gerente só consulta; o corretor não vê nada além do início', () => {
+  it('só o admin altera o financiamento; o gerente só consulta; o corretor só tem o início e os próprios leads', () => {
     expect(can('ADMIN', 'financing:write')).toBe(true);
     expect(can('GERENTE', 'financing:write')).toBe(false);
     expect(can('GERENTE', 'financing:read')).toBe(true);
-    expect(ROLE_PERMISSIONS.CORRETOR).toEqual(['home']);
+    expect(ROLE_PERMISSIONS.CORRETOR).toEqual(['home', 'leads:read', 'leads:handoff']);
+    expect(can('CORRETOR', 'leads:assign')).toBe(false);
+    expect(can('CORRETOR', 'leads:erase')).toBe(false);
   });
 
-  it('o menu do corretor só tem o início', () => {
-    expect(NAV_ITEMS.filter((i) => can('CORRETOR', i.permission)).map((i) => i.href)).toEqual(['/']);
+  it('o menu do corretor só tem o início e os leads', () => {
+    expect(NAV_ITEMS.filter((i) => can('CORRETOR', i.permission)).map((i) => i.href)).toEqual(['/', '/leads']);
     expect(NAV_ITEMS.filter((i) => can('GERENTE', i.permission))).toHaveLength(NAV_ITEMS.length);
+  });
+
+  it('o escopo de leads: corretor só os dele (sem vínculo, nenhum); gestão e admin, todos', () => {
+    expect(leadScope({ role: 'CORRETOR', brokerId: 'b1' })).toEqual({ brokerId: 'b1' });
+    expect(leadScope({ role: 'CORRETOR', brokerId: null })).toEqual({ brokerId: null });
+    expect(leadScope({ role: 'GERENTE', brokerId: null })).toBeUndefined();
+    expect(leadScope({ role: 'ADMIN', brokerId: null })).toBeUndefined();
   });
 });

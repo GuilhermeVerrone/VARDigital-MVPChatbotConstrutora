@@ -14,19 +14,30 @@ export type Permission =
   | 'financing:write'
   | 'brokers:read'
   | 'brokers:write'
-  | 'audit:read';
+  | 'audit:read'
+  | 'leads:read'
+  | 'leads:assign'
+  | 'leads:handoff'
+  | 'leads:erase'
+  | 'flow:read'
+  | 'flow:write'
+  | 'simulator:use'
+  | 'whatsapp:read';
 
 const GESTAO: Permission[] = [
   'home', 'developments:read', 'developments:write', 'conditions:read', 'conditions:write',
   'financing:read', 'brokers:read', 'brokers:write', 'audit:read',
+  'leads:read', 'leads:assign', 'leads:handoff', 'leads:erase',
+  'flow:read', 'flow:write', 'simulator:use', 'whatsapp:read',
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   // Financiamento (taxa, prazo) é decisão do admin; o gerente só consulta.
   ADMIN: [...GESTAO, 'financing:write'],
   GERENTE: GESTAO,
-  // O corretor só entra no painel; a lista dos seus leads chega na Fase 15.
-  CORRETOR: ['home'],
+  // O corretor vê só os próprios leads (escopo em `leadScope`) e assume/devolve o handoff deles. Não
+  // atribui corretor, não pede exclusão e não mexe no fluxo do bot.
+  CORRETOR: ['home', 'leads:read', 'leads:handoff'],
 };
 
 export function can(role: Role, permission: Permission): boolean {
@@ -39,6 +50,10 @@ export const ROUTE_PERMISSIONS: readonly { prefix: string; permission: Permissio
   { prefix: '/financiamento', permission: 'financing:read' },
   { prefix: '/corretores', permission: 'brokers:read' },
   { prefix: '/auditoria', permission: 'audit:read' },
+  { prefix: '/leads', permission: 'leads:read' },
+  { prefix: '/fluxo', permission: 'flow:read' },
+  { prefix: '/simulador', permission: 'simulator:use' },
+  { prefix: '/whatsapp', permission: 'whatsapp:read' },
 ];
 
 /** Rotas que não exigem sessão. */
@@ -72,6 +87,11 @@ export interface PanelUser {
   brokerId: string | null;
 }
 
+/** Escopo dos leads do usuário: o corretor só enxerga os dele (sem corretor vinculado, nenhum); os demais, todos. */
+export function leadScope(user: Pick<PanelUser, 'role' | 'brokerId'>): { brokerId: string | null } | undefined {
+  return user.role === 'CORRETOR' ? { brokerId: user.brokerId } : undefined;
+}
+
 export function assertCan(user: Pick<PanelUser, 'role'>, permission: Permission): void {
   if (!can(user.role, permission)) throw new ForbiddenError(permission);
 }
@@ -79,7 +99,11 @@ export function assertCan(user: Pick<PanelUser, 'role'>, permission: Permission)
 /** Itens do menu que o papel pode ver. */
 export const NAV_ITEMS: readonly { href: string; label: string; permission: Permission }[] = [
   { href: '/', label: 'Início', permission: 'home' },
+  { href: '/leads', label: 'Leads', permission: 'leads:read' },
   { href: '/empreendimentos', label: 'Empreendimentos', permission: 'developments:read' },
+  { href: '/fluxo', label: 'Fluxo do bot', permission: 'flow:read' },
+  { href: '/simulador', label: 'Simulador de conversa', permission: 'simulator:use' },
+  { href: '/whatsapp', label: 'WhatsApp', permission: 'whatsapp:read' },
   { href: '/financiamento', label: 'Financiamento simulado', permission: 'financing:read' },
   { href: '/corretores', label: 'Corretores', permission: 'brokers:read' },
   { href: '/auditoria', label: 'Auditoria', permission: 'audit:read' },
