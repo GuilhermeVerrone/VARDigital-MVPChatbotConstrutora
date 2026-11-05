@@ -4,6 +4,7 @@ import type { Prisma } from './generated/prisma/client';
 import type { IncomeType, LeadStatus, PaymentMode, ScoreClass } from './generated/prisma/enums';
 import { enqueueJob, type EnqueueJobArgs } from './jobs';
 import { dateFromIso } from './convert';
+import { recordStatusChange } from './lead-status';
 import { offeredModes } from '@mvp/simulation';
 import { findSalesConditionInForce } from './sales-conditions/repository';
 
@@ -177,7 +178,10 @@ export async function saveTurn(db: Db, a: SaveTurnArgs): Promise<void> {
       const owner = await tx.lead.findUnique({ where: { phone: w.lead.phone } });
       if (!owner || owner.id === a.leadId) leadData.phone = w.lead.phone;
     }
-    if (w.status) leadData.status = w.status;
+    if (w.status) {
+      leadData.status = w.status;
+      await recordStatusChange(tx, a.leadId, w.status, 'bot', w.at);
+    }
     // Parar de receber é revogar o consentimento (o registro fica, com a data da revogação).
     if (w.status === 'OPTED_OUT') {
       await tx.consent.updateMany({ where: { leadId: a.leadId, revokedAt: null }, data: { revokedAt: w.at ?? new Date() } });
@@ -274,6 +278,8 @@ export interface ReleaseHandoffArgs {
   /** Status do lead depois da devolução. */
   leadStatus: LeadStatus;
   at: Date;
+  /** Quem devolveu (padrão 'broker', o comando do WhatsApp; o painel passa o id do usuário). */
+  actor?: string;
 }
 
 /** O corretor devolve a conversa: o bot volta a responder e um novo handoff gera um código novo. */
@@ -283,8 +289,9 @@ export async function releaseHandoff(db: Db, a: ReleaseHandoffArgs): Promise<voi
       where: { id: a.conversationId },
       data: { state: a.state, context: a.context, history: a.history, handoff: false, handoffCode: null, takenByBrokerId: null, takenAt: null },
     });
+    await recordStatusChange(tx, a.leadId, a.leadStatus, a.actor ?? 'broker', a.at);
     await tx.lead.update({ where: { id: a.leadId }, data: { status: a.leadStatus } });
-    await tx.auditLog.create({ data: { actor: 'broker', entity: 'lead', entityId: a.leadId, action: 'handoff_released', after: { brokerId: a.brokerId }, at: a.at } });
+    await tx.auditLog.create({ data: { actor: a.actor ?? 'broker', entity: 'lead', entityId: a.leadId, action: 'handoff_released', after: { brokerId: a.brokerId }, at: a.at } });
   });
 }
 

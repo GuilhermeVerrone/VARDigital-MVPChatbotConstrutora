@@ -2,6 +2,7 @@ import type { PaymentInput, PaymentResult, SimulationInput, SimulationResult } f
 import type { Db } from './client';
 import type { Broker, Development, FinancialProfile, Lead, Simulation, Unit } from './generated/prisma/client';
 import type { ScoreClass, Verdict } from './generated/prisma/enums';
+import { recordStatusChange } from './lead-status';
 
 /** Tudo o que a apresentação e o dossiê precisam de uma simulação gravada. */
 export interface SimulationBundle {
@@ -50,10 +51,18 @@ export const scoreClassFor = (verdict: Verdict): ScoreClass =>
 
 /** Simulação feita: o lead passa a SIMULATED e recebe a classe pelo parecer. */
 export async function markSimulated(db: Db, leadId: string, verdict: Verdict): Promise<void> {
-  await db.lead.update({ where: { id: leadId }, data: { status: 'SIMULATED', scoreClass: scoreClassFor(verdict) } });
+  await db.$transaction(async (tx) => {
+    await recordStatusChange(tx, leadId, 'SIMULATED', 'bot');
+    await tx.lead.update({ where: { id: leadId }, data: { status: 'SIMULATED', scoreClass: scoreClassFor(verdict) } });
+  });
 }
 
 /** Corretor avisado: o lead passa a DELIVERED (a menos que já esteja em HANDOFF/OPTED_OUT/CLOSED). */
 export async function markDelivered(db: Db, leadId: string): Promise<void> {
-  await db.lead.updateMany({ where: { id: leadId, status: { in: ['SIMULATED', 'IN_PROGRESS', 'NEW'] } }, data: { status: 'DELIVERED' } });
+  await db.$transaction(async (tx) => {
+    const lead = await tx.lead.findFirst({ where: { id: leadId, status: { in: ['SIMULATED', 'IN_PROGRESS', 'NEW'] } }, select: { id: true } });
+    if (!lead) return;
+    await recordStatusChange(tx, leadId, 'DELIVERED', 'bot');
+    await tx.lead.update({ where: { id: leadId }, data: { status: 'DELIVERED' } });
+  });
 }
