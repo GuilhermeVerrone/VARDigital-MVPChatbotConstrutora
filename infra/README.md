@@ -50,7 +50,7 @@ A imagem `ollama/ollama` tem ~2,8 GB comprimida (arm64). O modelo escolhido na F
 - Todo container tem `mem_limit` (variáveis `*_MEM_LIMIT` no `.env.example`); o heap do Node fica abaixo do limite (`NODE_OPTIONS`). O MySQL do WA-AKG sobe com buffer reduzido e sem `performance_schema`; o Postgres do bot com `shared_buffers` de 48 MB.
 - `sudo ./scripts/setup-swap.sh [GB]` cria um swapfile (padrão 2 GB, `swappiness=10`) na VPS. É rede de segurança, não extensão de RAM.
 - Imagens: construa fora da VPS (CI ou máquina local) e baixe de um registry; o build do WA-AKG (Next.js) estoura a memória de uma VPS pequena.
-- Medição: `./scripts/measure-memory.sh -- node scripts/simulate-load.mjs --secret <WA_AKG_WEBHOOK_SECRET>` amostra o `docker stats` durante conversas simuladas e falha se a soma dos picos passar de 2,5 GB. Resultado em `docs/fases/fase-11b.md`.
+- Medição: `./scripts/measure-memory.sh -- node scripts/simulate-load.mjs --secret <WA_AKG_WEBHOOK_SECRET>` amostra o `docker stats` durante conversas simuladas e falha se a soma dos picos passar de 2,5 GB. Sem número de WhatsApp conectado o envio falha e a carga trava em retry: suba `node scripts/fake-wa-akg.mjs` e rode o bot com `WA_AKG_BASE_URL=http://host.docker.internal:3999 TYPING_MAX_MS=0 docker compose up -d bot`. Os telefones simulados (`5511900000001`...) precisam estar em `ALLOWED_PHONES`. Resultado em `docs/fases/fase-11b.md`.
 
 ### Conectar o número de teste (manual)
 

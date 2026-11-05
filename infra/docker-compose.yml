@@ -130,7 +130,7 @@ services:
       BOT_TLS_KEY_FILE: /certs/bot.key
       WA_AKG_WEBHOOK_SECRET: ${WA_AKG_WEBHOOK_SECRET:?defina em infra/.env}
       BOT_DATABASE_URL: postgres://bot:${BOT_DB_PASSWORD}@bot-db:5432/bot
-      WA_AKG_BASE_URL: http://wa-akg:3000
+      WA_AKG_BASE_URL: ${WA_AKG_BASE_URL:-http://wa-akg:3000}
       WA_AKG_API_KEY: ${WA_AKG_API_KEY:-}
       WA_AKG_SESSION_ID: ${WA_AKG_SESSION_ID:-piloto}
       ALLOWED_PHONES: ${ALLOWED_PHONES:?defina em infra/.env (telefones permitidos, separados por vírgula)}
@@ -147,6 +147,7 @@ services:
       LEAD_RETENTION_DAYS: ${LEAD_RETENTION_DAYS:-180}
       RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-30}
       MAX_TEXT_CHARS: ${MAX_TEXT_CHARS:-2000}
+      TYPING_MAX_MS: ${TYPING_MAX_MS:-2000}
       PROMPTS_DIR: /app/prompts
       WEBHOOK_CAPTURE_DIR: ${WEBHOOK_CAPTURE_DIR:-}
     extra_hosts:
