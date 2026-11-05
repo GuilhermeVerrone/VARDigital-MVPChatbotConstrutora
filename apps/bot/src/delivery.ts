@@ -23,6 +23,8 @@ export interface DeliveryDeps {
   contactWithinMinutes?: number;
   /** 1º contato do formulário do site (Fase 13). Sem isto o job FIRST_CONTACT é recusado. */
   firstContact?: FirstContactOptions;
+  /** Envia ao lead o que ficou pendente na conversa (Fase 15: devolução do handoff pelo painel). Sem isto o job OUTBOX_FLUSH é recusado. */
+  flushOutbox?: (leadId: string) => Promise<boolean>;
 }
 
 /** Erros que não se resolvem tentando de novo. */
@@ -182,6 +184,11 @@ export function createDeliveryHandler(deps: DeliveryDeps) {
       case 'FIRST_CONTACT':
         if (!firstContact) throw new PermanentJobError('1º contato não configurado neste worker');
         return firstContact(job);
+      case 'OUTBOX_FLUSH':
+        if (!deps.flushOutbox) throw new PermanentJobError('envio pendente não configurado neste worker');
+        if (!job.leadId) throw new PermanentJobError('job sem lead');
+        await deps.flushOutbox(job.leadId);
+        return;
     }
   };
 }

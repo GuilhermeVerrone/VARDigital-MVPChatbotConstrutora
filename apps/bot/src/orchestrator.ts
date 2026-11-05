@@ -14,6 +14,7 @@ import {
 import {
   buildPaymentPdf, buildSimulationPdf, dateTimeBr, paymentResultMessages, pdfFileName, phoneBr, resultMessages,
 } from '@mvp/presentation';
+import { PermanentJobError } from './lib/job-errors';
 import { safeError } from './lib/mask';
 import { B, parseBrokerCommand, type BrokerCommand } from './broker-commands';
 import { toPaymentView, toView } from './view';
@@ -544,7 +545,23 @@ export function createOrchestrator(opts: OrchestratorOptions) {
 
   const hashOf = (msg: InboundMessage) => createHmac('sha256', opts.hashSecret).update(msg.chatId).digest('hex');
 
-  return async function handle(msg: InboundMessage): Promise<void> {
+  /**
+   * Envia ao lead o que ficou pendente na conversa (outbox). É o que o painel pede depois de devolver
+   * o handoff ao bot: o estado já foi gravado lá, falta só a próxima pergunta chegar ao WhatsApp.
+   * Devolve false quando não há nada a enviar (a mensagem já saiu, ou o lead mandou outra antes).
+   */
+  async function flushLead(leadId: string): Promise<boolean> {
+    const conv = await db.conversation.findFirst({ where: { leadId }, orderBy: { startedAt: 'desc' }, include: { lead: { select: { channelJid: true, phone: true } } } });
+    if (!conv) throw new PermanentJobError('lead sem conversa (dados apagados?)');
+    const snap = restore({ conversationId: conv.id, leadId, state: conv.state, context: conv.context, history: conv.history } as ConversationChat);
+    if (snap.outbox.length === 0) return false;
+    const chatId = conv.lead.channelJid ?? (conv.lead.phone ? `${conv.lead.phone}@s.whatsapp.net` : null);
+    if (!chatId) throw new PermanentJobError('lead sem endereço de WhatsApp para enviar');
+    await flush({ conversationId: conv.id, leadId }, snap, chatId);
+    return true;
+  }
+
+  async function handle(msg: InboundMessage): Promise<void> {
     // Mensagem de um corretor com um comando dele (assumir/devolver/pendentes): não é conversa de lead.
     if (msg.type === 'text' && msg.text && msg.phone) {
       const cmd = parseBrokerCommand(msg.text);
@@ -565,7 +582,9 @@ export function createOrchestrator(opts: OrchestratorOptions) {
       if (form) return fromForm(msg, who, form, env, code !== null && code === form.contactCode);
     }
     return preConsent(msg, who, loaded, env);
-  };
+  }
+
+  return Object.assign(handle, { flushLead });
 }
 
 export type Orchestrator = ReturnType<typeof createOrchestrator>;
