@@ -1,0 +1,168 @@
+# Produção (VPS de 4 GB). Imagens vêm do GHCR (build no CI). Uso, a partir de infra/:
+#   cp .env.prod.example .env.prod && editar
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+# Só o Caddy publica portas (80/443); tudo o mais fica na rede interna.
+name: mvp-construtora-prod
+
+x-app: &app
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  caddy:
+    <<: *app
+    image: caddy:2-alpine
+    mem_limit: 64m
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN:?defina em infra/.env.prod}
+      ACME_EMAIL: ${ACME_EMAIL:?defina em infra/.env.prod}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge, web]
+
+  bot-db:
+    <<: *app
+    image: postgres:16-alpine
+    mem_limit: 256m
+    environment:
+      POSTGRES_USER: bot
+      POSTGRES_PASSWORD: ${BOT_DB_PASSWORD:?}
+      POSTGRES_DB: bot
+    command: ["postgres", "-c", "shared_buffers=48MB", "-c", "max_connections=30", "-c", "work_mem=4MB", "-c", "maintenance_work_mem=32MB", "-c", "effective_cache_size=192MB"]
+    volumes: [bot_pg:/var/lib/postgresql/data]
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bot -d bot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    image: ${IMAGE_PREFIX:?}/migrate:${TAG:-latest}
+    restart: "no"
+    environment:
+      BOT_DATABASE_URL: postgres://bot:${BOT_DB_PASSWORD}@bot-db:5432/bot
+    networks: [internal]
+    depends_on:
+      bot-db: { condition: service_healthy }
+
+  bot:
+    <<: *app
+    image: ${IMAGE_PREFIX}/bot:${TAG:-latest}
+    mem_limit: 256m
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=160
+      BOT_PORT: "3100"
+      WA_AKG_WEBHOOK_SECRET: ${WA_AKG_WEBHOOK_SECRET:?}
+      BOT_DATABASE_URL: postgres://bot:${BOT_DB_PASSWORD}@bot-db:5432/bot
+      WA_AKG_BASE_URL: http://wa-akg:3000
+      WA_AKG_API_KEY: ${WA_AKG_API_KEY:-}
+      WA_AKG_SESSION_ID: ${WA_AKG_SESSION_ID:-piloto}
+      ALLOWED_PHONES: ${ALLOWED_PHONES:?}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_ENABLED: ${LLM_ENABLED:-true}
+      CHAT_HASH_SECRET: ${CHAT_HASH_SECRET:?}
+      LEAD_RETENTION_DAYS: ${LEAD_RETENTION_DAYS:-180}
+      PROMPTS_DIR: /app/prompts
+    networks: [internal, web, wa-akg-internal]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  site:
+    <<: *app
+    image: ${IMAGE_PREFIX}/site:${TAG:-latest}
+    mem_limit: 384m
+    environment:
+      NODE_OPTIONS: --max-old-space-size=270
+      SITE_DATABASE_URL: postgres://bot:${BOT_DB_PASSWORD}@bot-db:5432/bot
+      SITE_FORM_SECRET: ${SITE_FORM_SECRET:?}
+      SITE_WHATSAPP_NUMBER: ${SITE_WHATSAPP_NUMBER:-}
+      SITE_TRUST_PROXY: "true"
+    networks: [internal, web]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  painel:
+    <<: *app
+    image: ${IMAGE_PREFIX}/painel:${TAG:-latest}
+    mem_limit: 512m
+    environment:
+      NODE_OPTIONS: --max-old-space-size=360
+      PANEL_DATABASE_URL: postgres://bot:${BOT_DB_PASSWORD}@bot-db:5432/bot
+      PANEL_TRUST_PROXY: "true"
+      WA_AKG_BASE_URL: http://wa-akg:3000
+      WA_AKG_API_KEY: ${WA_AKG_API_KEY:-}
+      WA_AKG_SESSION_ID: ${WA_AKG_SESSION_ID:-piloto}
+    networks: [internal, web, wa-akg-internal]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  # ---------- WA-AKG (gateway WhatsApp): sem porta pública; admin só por túnel SSH (127.0.0.1:3000) ----------
+  wa-akg-db:
+    <<: *app
+    image: mysql:8.0
+    mem_limit: 384m
+    command: [--innodb-buffer-pool-size=64M, --innodb-log-buffer-size=8M, --key-buffer-size=8M, --max-connections=40, --performance-schema=OFF, --table-open-cache=200]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${WA_AKG_MYSQL_ROOT_PASSWORD:?}
+      MYSQL_DATABASE: wa_akg
+    volumes: [wa_akg_mysql:/var/lib/mysql]
+    networks: [wa-akg-db]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  wa-akg:
+    <<: *app
+    build:
+      context: ${WA_AKG_SRC:-../vendor/wa-akg}
+    image: mvp-construtora/wa-akg:1.7.0
+    mem_limit: 640m
+    environment:
+      DATABASE_URL: mysql://root:${WA_AKG_MYSQL_ROOT_PASSWORD}@wa-akg-db:3306/wa_akg
+      AUTH_SECRET: ${WA_AKG_AUTH_SECRET:?}
+      AUTH_TRUST_HOST: "true"
+      BASE_URL: http://localhost:3000
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:3000/api
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      NODE_OPTIONS: --max-old-space-size=384
+      NEXT_PUBLIC_SWAGGER_ENABLED: "false"
+      ENABLE_TELEMETRY: "false"
+      ENABLE_AUTO_UPDATE_CHECK: "false"
+      TZ: America/Sao_Paulo
+      ADMIN_EMAIL: ${WA_AKG_ADMIN_EMAIL:?}
+      ADMIN_PASSWORD: ${WA_AKG_ADMIN_PASSWORD:?}
+    ports: ["127.0.0.1:3000:3000"]
+    volumes: [wa_akg_data:/app/data, wa_akg_uploads:/app/uploads]
+    networks: [wa-akg-internal, wa-akg-db, web]
+    depends_on:
+      wa-akg-db: { condition: service_healthy }
+
+networks:
+  edge: {}
+  web: {}
+  internal: { internal: true }
+  wa-akg-internal: { internal: true }
+  wa-akg-db: { internal: true }
+
+volumes:
+  caddy_data:
+  caddy_config:
+  bot_pg:
+  wa_akg_mysql:
+  wa_akg_data:
+  wa_akg_uploads:
