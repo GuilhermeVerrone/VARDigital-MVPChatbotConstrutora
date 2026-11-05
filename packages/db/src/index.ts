@@ -83,6 +83,7 @@ export {
   getPublishedFlowConfig,
   listFlowConfigs,
   publishFlowConfig,
+  revertFlowConfig,
   updateFlowDraft,
   type CreateFlowDraftArgs,
   type FlowConfigContent,

@@ -57,3 +57,8 @@ export { getPanelDashboard, startOfTodaySp, type PanelDashboard } from './panel/
 export { eraseLead, type ErasureSummary } from './erasure';
 export { loadSimulationBundle, type SimulationBundle } from './dossier-data';
 export { listDevelopmentCatalog } from './conversations';
+export {
+  FlowConfigError, flowConfigContentSchema, getPublishedFlowConfig, publishFlowConfig, revertFlowConfig,
+  type FlowConfigContent, type PublishFlowArgs, type StoredFlowConfig,
+} from './flow-config';
+export { discardPanelFlowDraft, getFlowOverview, saveFlowDraft, type FlowOverview, type FlowVersionRow } from './panel/flow';
