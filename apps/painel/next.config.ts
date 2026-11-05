@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 const config: NextConfig = {
   // Os pacotes do workspace são TypeScript puro (sem build): o Next precisa transpilá-los.
-  transpilePackages: ['@mvp/db', '@mvp/simulation', '@mvp/ui'],
+  transpilePackages: ['@mvp/db', '@mvp/simulation', '@mvp/ui', '@mvp/conversation', '@mvp/parsers', '@mvp/presentation', '@mvp/llm'],
   // Módulos nativos / drivers ficam fora do bundle do servidor.
   serverExternalPackages: ['pg', '@prisma/adapter-pg', '@node-rs/argon2'],
   poweredByHeader: false,

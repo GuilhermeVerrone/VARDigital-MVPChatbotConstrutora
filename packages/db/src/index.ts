@@ -25,6 +25,7 @@ export {
   type PendingErasure,
   type RetentionOptions,
 } from './erasure';
+export { toPaymentView, toView } from './views';
 export { loadSimulationBundle, markDelivered, markSimulated, scoreClassFor, type SimulationBundle } from './dossier-data';
 export { addDays, dateFromIso, isoFromDate, num, todayIso } from './convert';
 export * from './generated/prisma/enums';

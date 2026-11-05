@@ -10,7 +10,10 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@mvp/conversation": "workspace:*",
     "@mvp/db": "workspace:*",
+    "@mvp/parsers": "workspace:*",
+    "@mvp/presentation": "workspace:*",
     "@mvp/simulation": "workspace:*",
     "@mvp/ui": "workspace:*",
     "next": "16.4.5",
