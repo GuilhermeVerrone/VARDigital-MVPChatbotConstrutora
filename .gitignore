@@ -16,3 +16,6 @@ packages/db/src/generated/
 .next/
 next-env.d.ts
 infra/backups/
+e2e/.output/
+test-results/
+playwright-report/

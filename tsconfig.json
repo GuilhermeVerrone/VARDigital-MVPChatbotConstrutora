@@ -4,6 +4,7 @@
     "apps/*/src",
     "apps/*/test",
     "apps/*/scripts",
+    "e2e",
     "packages/*/src",
     "packages/*/test",
     "packages/*/scripts",
