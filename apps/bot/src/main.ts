@@ -3,15 +3,16 @@ import { join, resolve } from 'node:path';
 import { createPhoneAllowlist, restrictChannel, WaAkgAdapter } from '@mvp/channel';
 import { SimulatedCrm } from '@mvp/crm';
 import { createDb } from '@mvp/db';
-import { loadPrompt, OllamaClient } from '@mvp/llm';
+import { createCallBudget } from '@mvp/llm';
 import { loadConfig } from './config';
 import { LOG_REDACT_PATHS } from './lib/mask';
 import { createDeliveryHandler } from './delivery';
 import { createDeliveryWorker } from './delivery-worker';
-import { createDependencyChecks } from './deps';
+import { createDependencyChecks, probeOllama } from './deps';
 import { createDbInbox } from './inbox';
 import { createRateLimiter } from './lib/rate-limit';
 import { createRetention } from './retention';
+import { setupLlm } from './llm-provider';
 import { createOrchestrator } from './orchestrator';
 import { buildServer } from './server';
 import { createWorker } from './worker';
@@ -37,7 +38,7 @@ const channel = restrictChannel(
 
 const promptsDir =
   config.PROMPTS_DIR ?? [resolve('prompts'), resolve('../../prompts')].find((d) => existsSync(join(d, `extraction.v${config.LLM_PROMPT_VERSION}.md`)));
-if (config.LLM_ENABLED && !promptsDir) throw new Error('prompts/ não encontrado: defina PROMPTS_DIR ou LLM_ENABLED=false');
+const llmSetup = setupLlm(config, promptsDir);
 
 const handle = createOrchestrator({
   db,
@@ -48,13 +49,8 @@ const handle = createOrchestrator({
   retentionMs: config.CONVERSATION_RETENTION_DAYS * 24 * 60 * 60 * 1000,
   onJobsEnqueued: () => deliveryWorker.kick(),
   log: { warn: (o, m) => app.log.warn(o, m), info: (o, m) => app.log.info(o, m) },
-  ...(config.LLM_ENABLED && promptsDir
-    ? {
-        llm: {
-          llm: new OllamaClient({ baseUrl: config.OLLAMA_BASE_URL, model: config.LLM_MODEL, timeoutMs: config.LLM_TIMEOUT_MS }),
-          prompt: loadPrompt(promptsDir, 'extraction', config.LLM_PROMPT_VERSION),
-        },
-      }
+  ...(llmSetup.llm
+    ? { llm: llmSetup.llm, llmBudget: createCallBudget({ maxCalls: config.LLM_MAX_CALLS_PER_CONVERSATION }) }
     : {}),
 });
 
@@ -64,7 +60,10 @@ const app = buildServer({
   sessionId: config.WA_AKG_SESSION_ID,
   allowlist,
   onEnqueued: () => worker.kick(),
-  deps: createDependencyChecks({ databaseUrl: config.BOT_DATABASE_URL, ollamaBaseUrl: config.OLLAMA_BASE_URL }),
+  deps: createDependencyChecks({
+    databaseUrl: config.BOT_DATABASE_URL,
+    llm: config.LLM_PROVIDER === 'ollama' && llmSetup.llm ? probeOllama(config.OLLAMA_BASE_URL) : async () => llmSetup.monitor.status(),
+  }),
   captureDir: config.WEBHOOK_CAPTURE_DIR,
   rateLimiter: createRateLimiter({ max: config.RATE_LIMIT_PER_MIN, windowMs: 60_000 }),
   maxTextChars: config.MAX_TEXT_CHARS,
@@ -76,6 +75,8 @@ const app = buildServer({
     },
   },
 });
+
+if (llmSetup.disabledReason) app.log.warn({ reason: llmSetup.disabledReason }, 'LLM desligado: o bot segue só com os parsers');
 
 const worker = createWorker({
   inbox,

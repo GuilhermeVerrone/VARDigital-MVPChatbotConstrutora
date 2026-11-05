@@ -13,7 +13,7 @@ const allowlist = createPhoneAllowlist(['5511987654321']);
 const secret = 'a-very-long-test-secret';
 const okDeps: DependencyChecks = {
   postgres: async () => ({ ok: true, latencyMs: 1 }),
-  ollama: async () => ({ ok: true, latencyMs: 1 }),
+  llm: async () => ({ ok: true, latencyMs: 1 }),
 };
 
 const testPayload = JSON.stringify({
@@ -100,14 +100,23 @@ describe('health', () => {
     expect(res.json()).toEqual({ status: 'ok' });
   });
 
-  it('GET /health/deps retorna 503 se alguma dependência falhar', async () => {
+  it('GET /health/deps: banco fora é 503; LLM fora é 200 degradado (o bot segue só com os parsers)', async () => {
     app = buildServer({
       ...base,
-      deps: { ...okDeps, ollama: async () => ({ ok: false, latencyMs: 3000, detail: 'timeout' }) },
+      deps: { ...okDeps, postgres: async () => ({ ok: false, latencyMs: 3000, detail: 'timeout' }) },
     });
-    const res = await app.inject({ method: 'GET', url: '/health/deps' });
-    expect(res.statusCode).toBe(503);
-    expect(res.json()).toMatchObject({ status: 'degraded', postgres: { ok: true }, ollama: { ok: false } });
+    const down = await app.inject({ method: 'GET', url: '/health/deps' });
+    expect(down.statusCode).toBe(503);
+    expect(down.json()).toMatchObject({ status: 'degraded', postgres: { ok: false }, llm: { ok: true } });
+    await app.close();
+
+    app = buildServer({
+      ...base,
+      deps: { ...okDeps, llm: async () => ({ ok: false, latencyMs: 0, detail: 'ANTHROPIC_API_KEY ausente: só parsers' }) },
+    });
+    const degraded = await app.inject({ method: 'GET', url: '/health/deps' });
+    expect(degraded.statusCode).toBe(200);
+    expect(degraded.json()).toMatchObject({ status: 'degraded', postgres: { ok: true }, llm: { ok: false, detail: expect.stringContaining('só parsers') } });
   });
 
   it('outras rotas continuam aceitando JSON normal (parser bruto é só do webhook)', async () => {

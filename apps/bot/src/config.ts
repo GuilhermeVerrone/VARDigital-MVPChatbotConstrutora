@@ -43,11 +43,17 @@ const envSchema = z.object({
   DELIVERY_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(8),
   // Prazo para o corretor ligar, citado no "próximo passo" do dossiê (o SLA configurável é pós-MVP).
   BROKER_CONTACT_MINUTES: z.coerce.number().int().positive().default(5),
-  // LLM local (fallback dos parsers). LLM_ENABLED=false → só parsers.
+  // LLM (fallback dos parsers e FAQ). LLM_ENABLED=false → só parsers. Provedor: API da Anthropic (padrão) ou
+  // Ollama local (perfil opcional do compose). Sem chave o bot segue só com os parsers.
   LLM_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
-  LLM_MODEL: z.string().default('qwen2.5:7b'),
+  LLM_PROVIDER: z.enum(['anthropic', 'ollama']).default('anthropic'),
+  // Vazio = padrão do provedor (claude-haiku-5-5 na Anthropic, qwen2.5:7b no Ollama).
+  LLM_MODEL: z.preprocess(emptyToUndefined, z.string().optional()),
+  ANTHROPIC_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
-  LLM_PROMPT_VERSION: z.coerce.number().int().positive().default(2),
+  // Teto de chamadas ao LLM por conversa (custo): depois dele só os parsers (0 desliga o LLM).
+  LLM_MAX_CALLS_PER_CONVERSATION: z.coerce.number().int().min(0).default(30),
+  LLM_PROMPT_VERSION: z.coerce.number().int().positive().default(3),
   PROMPTS_DIR: z.preprocess(emptyToUndefined, z.string().optional()),
   OLLAMA_BASE_URL: z.string().url().default('http://localhost:11434'),
   // Somente desenvolvimento: grava payloads brutos recebidos (contêm dados pessoais).

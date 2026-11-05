@@ -2,6 +2,9 @@
 #   ./scripts/init-env.sh && ./scripts/gen-dev-certs.sh && ../infra/scripts/fetch-wa-akg.sh
 #   docker compose up -d --build
 # Ver infra/README.md.
+#
+# Stack padrão enxuta (V2, D13/D14): sem Ollama (o LLM é a API da Anthropic) e com mem_limit por container
+# para caber em VPS de 4 GB (alvo <= 2,5 GB medidos; ver docs/fases/fase-11b.md). Ollama: COMPOSE_PROFILES=ollama.
 name: mvp-construtora
 
 services:
@@ -9,6 +12,17 @@ services:
   wa-akg-db:
     image: mysql:8.0
     restart: unless-stopped
+    # Buffers reduzidos: o padrão do MySQL 8 reserva centenas de MB só de InnoDB e performance_schema.
+    command:
+      - --innodb-buffer-pool-size=64M
+      - --innodb-log-buffer-size=8M
+      - --key-buffer-size=8M
+      - --max-connections=40
+      - --performance-schema=OFF
+      - --table-open-cache=200
+      - --tmp-table-size=16M
+      - --max-heap-table-size=16M
+    mem_limit: ${WA_AKG_DB_MEM_LIMIT:-384m}
     environment:
       MYSQL_ROOT_PASSWORD: ${WA_AKG_MYSQL_ROOT_PASSWORD:?defina em infra/.env}
       MYSQL_DATABASE: wa_akg
@@ -27,6 +41,7 @@ services:
       context: ${WA_AKG_SRC:-../vendor/wa-akg}
     image: mvp-construtora/wa-akg:1.7.0
     restart: unless-stopped
+    mem_limit: ${WA_AKG_MEM_LIMIT:-640m}
     environment:
       DATABASE_URL: mysql://root:${WA_AKG_MYSQL_ROOT_PASSWORD}@wa-akg-db:3306/wa_akg
       AUTH_SECRET: ${WA_AKG_AUTH_SECRET:?defina em infra/.env}
@@ -38,6 +53,8 @@ services:
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: 0.0.0.0
+      # O heap do Node precisa ficar abaixo do mem_limit, senão o kernel mata o container antes do GC agir.
+      NODE_OPTIONS: --max-old-space-size=${WA_AKG_NODE_HEAP_MB:-384}
       BAILEYS_LOG_LEVEL: error
       NEXT_PUBLIC_SWAGGER_ENABLED: "true"
       NEXT_PUBLIC_SWAGGER_USERNAME: admin
@@ -68,6 +85,9 @@ services:
       POSTGRES_USER: bot
       POSTGRES_PASSWORD: ${BOT_DB_PASSWORD:?defina em infra/.env}
       POSTGRES_DB: bot
+    # Servidor pequeno: o padrão (shared_buffers 128 MB, 100 conexões) é maior do que o bot precisa.
+    command: ["postgres", "-c", "shared_buffers=48MB", "-c", "max_connections=30", "-c", "work_mem=4MB", "-c", "maintenance_work_mem=32MB", "-c", "effective_cache_size=192MB"]
+    mem_limit: ${BOT_DB_MEM_LIMIT:-256m}
     ports:
       - "127.0.0.1:${BOT_DB_PORT:-5433}:5432"
     volumes:
@@ -86,6 +106,8 @@ services:
     image: ollama/ollama:${OLLAMA_VERSION:-0.33.0}
     profiles: [ollama]
     restart: unless-stopped
+    # qwen2.5:7b usa ~4,7 GB: só cabe em máquina maior (por isso o perfil é opcional).
+    mem_limit: ${OLLAMA_MEM_LIMIT:-6g}
     ports:
       - "127.0.0.1:${OLLAMA_PORT:-11435}:11434"
     volumes:
@@ -98,25 +120,34 @@ services:
       dockerfile: apps/bot/Dockerfile
     image: mvp-construtora/bot:dev
     restart: unless-stopped
+    mem_limit: ${BOT_MEM_LIMIT:-256m}
     environment:
       NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=${BOT_NODE_HEAP_MB:-160}
       LOG_LEVEL: ${BOT_LOG_LEVEL:-info}
       BOT_PORT: "3100"
       BOT_TLS_CERT_FILE: /certs/bot.crt
       BOT_TLS_KEY_FILE: /certs/bot.key
       WA_AKG_WEBHOOK_SECRET: ${WA_AKG_WEBHOOK_SECRET:?defina em infra/.env}
       BOT_DATABASE_URL: postgres://bot:${BOT_DB_PASSWORD}@bot-db:5432/bot
-      WA_AKG_BASE_URL: http://wa-akg:3000
+      WA_AKG_BASE_URL: ${WA_AKG_BASE_URL:-http://wa-akg:3000}
       WA_AKG_API_KEY: ${WA_AKG_API_KEY:-}
       WA_AKG_SESSION_ID: ${WA_AKG_SESSION_ID:-piloto}
       ALLOWED_PHONES: ${ALLOWED_PHONES:?defina em infra/.env (telefones permitidos, separados por vírgula)}
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      # LLM: API da Anthropic por padrão (chave só em infra/.env); LLM_PROVIDER=ollama usa o perfil ollama.
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_MAX_CALLS_PER_CONVERSATION: ${LLM_MAX_CALLS_PER_CONVERSATION:-30}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       CHAT_HASH_SECRET: ${CHAT_HASH_SECRET:?defina em infra/.env}
-      LLM_MODEL: ${LLM_MODEL:-qwen2.5:7b}
+      # Vazio = padrão do provedor (claude-haiku-5-5 na Anthropic, qwen2.5:7b no Ollama).
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_PROMPT_VERSION: ${LLM_PROMPT_VERSION:-3}
       LLM_ENABLED: ${LLM_ENABLED:-true}
       LEAD_RETENTION_DAYS: ${LEAD_RETENTION_DAYS:-180}
       RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-30}
       MAX_TEXT_CHARS: ${MAX_TEXT_CHARS:-2000}
+      TYPING_MAX_MS: ${TYPING_MAX_MS:-2000}
       PROMPTS_DIR: /app/prompts
       WEBHOOK_CAPTURE_DIR: ${WEBHOOK_CAPTURE_DIR:-}
     extra_hosts:

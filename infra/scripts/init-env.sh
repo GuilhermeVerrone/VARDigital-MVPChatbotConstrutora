@@ -27,10 +27,8 @@ set_var WA_AKG_ADMIN_PASSWORD "$(rand 12)"
 set_var BOT_DB_PASSWORD "$(rand)"
 set_var WA_AKG_WEBHOOK_SECRET "$(rand 32)"
 
-if [ "$(uname -s)" = "Linux" ]; then
-  set_var COMPOSE_PROFILES "ollama"
-  set_var OLLAMA_BASE_URL "http://ollama:11434"
-fi
+# LLM: API da Anthropic por padrão (sem Ollama no compose). Preencha ANTHROPIC_API_KEY em infra/.env;
+# sem ela o bot sobe e segue só com os parsers. Para o Ollama local: LLM_PROVIDER=ollama e COMPOSE_PROFILES=ollama.
 
 chmod 600 "${ENV_FILE}"
 echo "Criado ${ENV_FILE} (segredos aleatórios; não versionar)."

@@ -1,7 +1,9 @@
 // Mensagens ao lead (RF-03, spec §5.1): curtas, cordiais, uma pergunta por vez. O LLM não escreve
 // nenhuma delas; os únicos números que aparecem vêm do que o próprio lead informou.
 
-export const CONSENT_TEXT_VERSION = 'ilustrativo-1';
+// RASCUNHO até a revisão jurídica (o sufixo 'ilustrativo' marca isso no registro do consentimento).
+// ilustrativo-2 (V2, D13): passa a informar que a Anthropic (API de IA) lê o texto das respostas.
+export const CONSENT_TEXT_VERSION = 'ilustrativo-2';
 
 export const brl = (v: number): string =>
   `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: Number.isInteger(v) ? 0 : 2, maximumFractionDigits: 2 })}`;
@@ -17,6 +19,7 @@ export const T = {
   greetingAndConsent: (development: string) =>
     `Olá! Sou o assistente virtual da construtora e vou te ajudar a fazer uma simulação de financiamento do ${development}. É rápido, leva uns 5 minutos.\n\n` +
     'Para isso, preciso guardar as informações que você me passar (nome, contato e dados financeiros) e compartilhá-las com um corretor da construtora, só para atender a sua simulação. Nunca peço CPF, RG, senha ou dados de cartão.\n\n' +
+    'Para entender respostas em texto livre, uso um serviço de inteligência artificial da Anthropic como operadora de dados. Ele recebe só o texto da sua resposta, sem seu nome, telefone ou e-mail.\n\n' +
     'Você concorda? Responda *sim* ou *não*.',
   consentReask: 'Para continuar, preciso saber se você concorda em eu guardar seus dados para a simulação. Responda *sim* ou *não*.',
   consentDeclined: 'Tudo bem, sem problema! Não guardei nenhum dado seu. Se mudar de ideia, é só mandar uma mensagem. 😊',

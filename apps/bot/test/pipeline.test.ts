@@ -67,7 +67,7 @@ function stack(channel: ChannelAdapter) {
     webhookSecret: secret,
     sessionId: 'piloto',
     allowlist,
-    deps: { postgres: async () => ({ ok: true, latencyMs: 1 }), ollama: async () => ({ ok: true, latencyMs: 1 }) },
+    deps: { postgres: async () => ({ ok: true, latencyMs: 1 }), llm: async () => ({ ok: true, latencyMs: 1 }) },
     inbox: box,
     onEnqueued: () => worker.kick(),
   });

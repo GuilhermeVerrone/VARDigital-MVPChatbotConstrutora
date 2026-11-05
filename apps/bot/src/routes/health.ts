@@ -6,8 +6,9 @@ export function healthRoutes(app: FastifyInstance, deps: DependencyChecks) {
   app.get('/health', { logLevel: 'warn' }, async () => ({ status: 'ok' }));
 
   app.get('/health/deps', async (_req, reply) => {
-    const [postgres, ollama] = await Promise.all([deps.postgres(), deps.ollama()]);
-    const ok = postgres.ok && ollama.ok;
-    return reply.code(ok ? 200 : 503).send({ status: ok ? 'ok' : 'degraded', postgres, ollama });
+    const [postgres, llm] = await Promise.all([deps.postgres(), deps.llm()]);
+    // Sem banco o bot não funciona (503). Sem LLM ele segue só com os parsers: 200, mas degradado.
+    const code = postgres.ok ? 200 : 503;
+    return reply.code(code).send({ status: postgres.ok && llm.ok ? 'ok' : 'degraded', postgres, llm });
   });
 }

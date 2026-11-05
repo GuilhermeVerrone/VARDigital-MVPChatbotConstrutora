@@ -72,7 +72,7 @@ describe('consentimento (LGPD)', () => {
     expect(out.join('\n')).toContain('Qual é o seu nome completo');
     const lead = await t.db.lead.findFirstOrThrow({ include: { consents: true, conversations: true } });
     expect(lead).toMatchObject({ phone: PHONE, channelJid: JID, status: 'IN_PROGRESS', name: null });
-    expect(lead.consents).toMatchObject([{ textVersion: 'ilustrativo-1', channel: 'WHATSAPP' }]);
+    expect(lead.consents).toMatchObject([{ textVersion: 'ilustrativo-2', channel: 'WHATSAPP' }]);
     expect(lead.conversations[0]!.state).toBe('NAME');
     expect((await t.sql('select * from chat_sessions')).rows).toHaveLength(0);
   });

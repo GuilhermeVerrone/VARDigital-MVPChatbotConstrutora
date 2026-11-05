@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export type LlmErrorKind = 'timeout' | 'unavailable' | 'bad_status' | 'empty' | 'invalid_output';
+export type LlmErrorKind = 'timeout' | 'unavailable' | 'bad_status' | 'empty' | 'invalid_output' | 'limit_exceeded';
 
 export class LlmError extends Error {
   constructor(

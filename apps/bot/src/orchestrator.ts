@@ -15,7 +15,7 @@ import { buildSimulationPdf, dateTimeBr, pdfFileName, phoneBr, resultMessages } 
 import { safeError } from './lib/mask';
 import { B, parseBrokerCommand, type BrokerCommand } from './broker-commands';
 import { toView } from './view';
-import type { InterpretDeps } from '@mvp/llm';
+import { nameTerms, type CallBudget, type InterpretDeps } from '@mvp/llm';
 import { parseCommand, parseYesNo } from '@mvp/parsers';
 
 export interface OrchestratorOptions {
@@ -24,6 +24,8 @@ export interface OrchestratorOptions {
   /** HMAC da conversa antes do consentimento (nenhum telefone legível em chat_sessions). */
   hashSecret: string;
   llm?: InterpretDeps;
+  /** Teto de chamadas ao LLM por conversa (custo). Sem ele não há limite. */
+  llmBudget?: CallBudget;
   now?: () => Date;
   /** Sem consulta ao LLM/espera: testes. */
   sleep?: (ms: number) => Promise<void>;
@@ -113,6 +115,17 @@ export function createOrchestrator(opts: OrchestratorOptions) {
   const now = opts.now ?? (() => new Date());
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const maxTyping = opts.maxTypingMs ?? 2_000;
+
+  /** Dependências do LLM para esta conversa: com teto de chamadas e o nome do lead mascarado no que sai. */
+  function llmDepsFor(conversationId: string, leadName: string | undefined): InterpretDeps {
+    const base = opts.llm;
+    if (!base?.llm) return base ?? {};
+    return {
+      ...base,
+      llm: opts.llmBudget ? opts.llmBudget.forConversation(conversationId, base.llm) : base.llm,
+      redactTerms: nameTerms(leadName),
+    };
+  }
   const resumeGap = opts.resumeGapMs ?? 6 * 60 * 60 * 1000;
   const retention = opts.retentionMs ?? 7 * DAY;
   const bestEffort = (p: Promise<unknown>) => p.catch(() => undefined);
@@ -314,7 +327,7 @@ export function createOrchestrator(opts: OrchestratorOptions) {
     if (msg.type !== 'text' || !msg.text) {
       result = handleNonText(snap, env, meta);
     } else {
-      const it = await interpretStep(msg.text, snap, env, opts.llm ?? {});
+      const it = await interpretStep(msg.text, snap, env, llmDepsFor(chat.conversationId, snap.data.name));
       result = applyInterpretation(snap, it, env, meta);
       const gap = now().getTime() - lastActivity(snap, chat.updatedAt);
       const wasQuestion = !TERMINAL.has(snap.state) && snap.state !== 'DONE';
