@@ -43,6 +43,7 @@ import {
 } from '@mvp/db/panel';
 import { offeredModes, parseSalesCondition, type PaymentMode, type SalesCondition } from '@mvp/simulation';
 import { valuesToCondition } from './condition-form';
+import { fetchWhatsappStatus, whatsappEnvFromProcess } from './whatsapp';
 import { valuesToContent, issuesByField, type FlowFormValues } from './flow-form';
 import { assertCan, leadScope, type PanelUser } from './permissions';
 
@@ -360,5 +361,14 @@ export const leadsService = {
     if (confirmation.trim().toUpperCase() !== 'EXCLUIR') throw new PanelValidationError({ confirmation: 'Digite EXCLUIR para confirmar' });
     await requireLeadInScope(ctx.db, leadId, leadScope(ctx.user));
     return eraseLead(ctx.db, leadId, { reason: 'titular', actor: ctx.user.id });
+  },
+};
+
+// -- WhatsApp ---------------------------------------------------------------------------------------
+
+export const whatsappService = {
+  status: async (ctx: ServiceCtx) => {
+    assertCan(ctx.user, 'whatsapp:read');
+    return fetchWhatsappStatus(whatsappEnvFromProcess());
   },
 };
