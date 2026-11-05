@@ -35,3 +35,25 @@ export {
 export { brokerFormSchema, listAdminBrokers, saveBroker } from './panel/brokers';
 export { SAMPLE_PROFILES, previewPayment, type PreviewArgs, type PreviewResult, type SampleProfile } from './panel/preview';
 export { PanelNotFoundError, PanelValidationError } from './panel/errors';
+export {
+  LEADS_PAGE_SIZE,
+  assignLeadBroker,
+  findLeadHandoff,
+  getPanelLead,
+  listPanelLeads,
+  releaseLeadHandoff,
+  requireLeadInScope,
+  takeLeadHandoff,
+  verdictOfClass,
+  type LeadDetail,
+  type LeadFilter,
+  type LeadRow,
+  type LeadScope,
+  type PanelHandoffResult,
+  type ReleasableLeadHandoff,
+  type TimelineEvent,
+} from './panel/leads';
+export { getPanelDashboard, startOfTodaySp, type PanelDashboard } from './panel/dashboard';
+export { eraseLead, type ErasureSummary } from './erasure';
+export { loadSimulationBundle, type SimulationBundle } from './dossier-data';
+export { listDevelopmentCatalog } from './conversations';

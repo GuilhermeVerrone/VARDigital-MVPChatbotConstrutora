@@ -5,16 +5,16 @@ import type { Prisma } from './generated/prisma/client';
 // Mesmas decisões da fila de entrada: o job é gravado antes de tentar entregar, a reserva expira
 // (lockedUntil) para outro worker retomar, e `dedupeKey` impede enfileirar a mesma entrega duas vezes.
 
-export type JobKind = 'CRM_SYNC' | 'BROKER_NOTIFY' | 'HANDOFF_NOTIFY' | 'FIRST_CONTACT';
+export type JobKind = 'CRM_SYNC' | 'BROKER_NOTIFY' | 'HANDOFF_NOTIFY' | 'FIRST_CONTACT' | 'OUTBOX_FLUSH';
 
-/** Tipos que o worker reserva quando não pede outros (FIRST_CONTACT é a 1ª mensagem do formulário do site, Fase 13). */
-export const DEFAULT_JOB_KINDS: readonly JobKind[] = ['CRM_SYNC', 'BROKER_NOTIFY', 'HANDOFF_NOTIFY', 'FIRST_CONTACT'];
+/** Tipos que o worker reserva quando não pede outros (FIRST_CONTACT é a 1ª mensagem do formulário do site, Fase 13; OUTBOX_FLUSH envia ao lead o que ficou pendente depois que o painel devolveu o handoff ao bot, Fase 15). */
+export const DEFAULT_JOB_KINDS: readonly JobKind[] = ['CRM_SYNC', 'BROKER_NOTIFY', 'HANDOFF_NOTIFY', 'FIRST_CONTACT', 'OUTBOX_FLUSH'];
 
 export interface EnqueueJobArgs {
   kind: JobKind;
   /** Entregas de simulação (CRM_SYNC, BROKER_NOTIFY). */
   simulationId?: string;
-  /** Entregas de lead sem simulação (HANDOFF_NOTIFY). */
+  /** Entregas de lead sem simulação (HANDOFF_NOTIFY, OUTBOX_FLUSH). */
   leadId?: string;
   /** Padrão: "<kind>:<simulationId ou leadId>". Use um sufixo para permitir reenvios (ex.: após ajuste). */
   dedupeKey?: string;

@@ -667,7 +667,7 @@ enum JobStatus {
 /// pessoal. Falha enfileira de novo com espera (spec §7.2: nenhum lead se perde).
 model DeliveryJob {
   id           String    @id @default(uuid()) @db.Uuid
-  /// CRM_SYNC | BROKER_NOTIFY | HANDOFF_NOTIFY | FIRST_CONTACT (V2: 1ª mensagem do formulário do site)
+  /// CRM_SYNC | BROKER_NOTIFY | HANDOFF_NOTIFY | FIRST_CONTACT (V2: 1ª mensagem do formulário do site) | OUTBOX_FLUSH (V2: envia ao lead o que o painel deixou pendente ao devolver o handoff)
   kind         String
   /// Entregas de simulação (CRM_SYNC, BROKER_NOTIFY).
   simulationId String?   @map("simulation_id") @db.Uuid
