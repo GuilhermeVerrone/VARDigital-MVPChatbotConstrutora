@@ -21,6 +21,8 @@ export interface FlowIssue {
 }
 
 export const MAX_TEXT_LENGTH = 1000;
+export const MAX_BUTTONS = 3;
+export const MAX_BUTTON_LENGTH = 25;
 
 /** Etapas que o fluxo pode ligar e desligar (as que o bot consulta com `stepOn`). */
 export const OPTIONAL_STEPS: readonly { key: string; label: string; hint: string }[] = [
@@ -179,7 +181,9 @@ export function lintFlowContent(content: FlowContentLike): FlowIssue[] {
       out.push({ severity: 'error', path, message: `Etapa desconhecida para botões: ${key}.` });
       continue;
     }
+    if (labels.length > MAX_BUTTONS) out.push({ severity: 'error', path, message: `No máximo ${MAX_BUTTONS} botões por etapa.` });
     labels.forEach((label, i) => {
+      if (label.length > MAX_BUTTON_LENGTH) out.push({ severity: 'error', path: `${path}.${i}`, message: `Botão "${label.slice(0, 12)}…" passa de ${MAX_BUTTON_LENGTH} caracteres.` });
       const term = findForbiddenTerm(label);
       if (term) out.push({ severity: 'error', path: `${path}.${i}`, message: `Palavra proibida no botão: "${term}".` });
       if (/[{}]/.test(label)) out.push({ severity: 'error', path: `${path}.${i}`, message: 'Botão não aceita variáveis.' });

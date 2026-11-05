@@ -53,6 +53,8 @@ describe('linter do fluxo', () => {
     expect(errors({ buttons: { X: ['a'] } })[0]).toMatch(/desconhecida/);
     expect(errors({ buttons: { ASK_PAYMENT_MODE: ['Sem juros'] } })[0]).toMatch(/proibida/);
     expect(errors({ buttons: { ASK_PAYMENT_MODE: ['{nome}'] } })[0]).toMatch(/variáveis/);
+    expect(errors({ buttons: { ASK_PAYMENT_MODE: ['a', 'b', 'c', 'd'] } })[0]).toMatch(/No máximo 3/);
+    expect(errors({ buttons: { ASK_PAYMENT_MODE: ['x'.repeat(26)] } })[0]).toMatch(/passa de 25/);
   });
 
   it('pergunta de sim/não sem a instrução de resposta vira aviso (não bloqueia)', () => {

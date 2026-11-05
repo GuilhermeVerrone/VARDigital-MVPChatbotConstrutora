@@ -1,8 +1,9 @@
+import type { PaymentView } from '@mvp/presentation';
 import { parseSalesCondition, type IncomeType, type PaymentInput, type PaymentMode, type PaymentResult, type SalesCondition } from '@mvp/simulation';
 import type { Db } from '../client';
 import { dateFromIso } from '../convert';
 import { Prisma, type Development, type FinancialProfile, type Unit } from '../generated/prisma/client';
-import { computePaymentSimulation, type PaymentSimulationChoices } from '../simulation-service';
+import { computePaymentSimulation, MissingSimulationDataError, pickUnitForTypology, type PaymentSimulationChoices } from '../simulation-service';
 import { PanelNotFoundError } from './errors';
 
 // Calculadora de prévia do painel: o MESMO caminho do bot (`computePaymentSimulation`), com um perfil
@@ -77,5 +78,67 @@ export async function previewPayment(db: Db, args: PreviewArgs): Promise<Preview
     conditionVersion: computed.stored?.version ?? null,
     parametersVersion: computed.usedParameters?.version ?? null,
     profile,
+  };
+}
+
+// -- Simulador de conversa --------------------------------------------------------------------------
+
+export interface CollectedSimulationArgs {
+  mode: PaymentMode;
+  referenceDate: string;
+  typology: string;
+  developmentId?: string;
+  name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  /** Nascimento do proponente ('AAAA-MM-DD'), para a estimativa do banco. */
+  birthDate?: string;
+  profile: {
+    income: number;
+    incomeType: IncomeType;
+    debts: number;
+    cashNow: number;
+    acceptsBalloons: boolean | null;
+    fgtsBalance: number | null;
+    fgtsMonths: number | null;
+    ownsProperty: boolean;
+    firstFinancing: boolean;
+  };
+  choices?: PaymentSimulationChoices;
+}
+
+/**
+ * Simula com o que a conversa do simulador coletou, SEM gravar nada: o mesmo núcleo do bot
+ * (`computePaymentSimulation`), com um perfil em memória no lugar do lead. Devolve a visão que a
+ * apresentação do bot formata, então o resultado mostrado no simulador é o texto real do bot.
+ */
+export async function simulateCollected(db: Db, a: CollectedSimulationArgs): Promise<{ view: PaymentView; conditionVersion: string | null }> {
+  const unit = await pickUnitForTypology(db, a.typology, a.developmentId);
+  if (!unit) throw new MissingSimulationDataError(['unit']);
+  const full = await db.unit.findUniqueOrThrow({ where: { id: unit.id }, include: { development: true } });
+  const p = a.profile;
+  const profile = {
+    id: 'simulador', leadId: 'simulador', grossMonthlyIncome: new Prisma.Decimal(p.income), incomeType: p.incomeType, monthlyDebts: new Prisma.Decimal(p.debts),
+    availableDownPayment: new Prisma.Decimal(p.cashNow), fgtsBalance: p.fgtsBalance === null ? null : new Prisma.Decimal(p.fgtsBalance), fgtsContributionMonths: p.fgtsMonths,
+    ownsResidentialProperty: p.ownsProperty, firstFinancing: p.firstFinancing, coApplicantIncome: null, coApplicantIncomeType: null, coApplicantBirthDate: null,
+    coApplicantMonthlyDebts: null, coApplicantFgtsBalance: null, coApplicantFgtsMonths: null, cashNow: new Prisma.Decimal(p.cashNow), acceptsBalloons: p.acceptsBalloons,
+    updatedAt: new Date(0),
+  } as unknown as FinancialProfile;
+  const computed = await computePaymentSimulation(db, {
+    mode: a.mode,
+    referenceDate: a.referenceDate,
+    lead: { birthDate: a.birthDate ? dateFromIso(a.birthDate) : null },
+    profile,
+    unit: full as Unit & { development: Development },
+    ...(a.choices ? { choices: a.choices } : {}),
+  });
+  return {
+    conditionVersion: computed.stored?.version ?? null,
+    view: {
+      kind: 'payment', leadName: a.name ?? null, phone: a.phone ?? null, email: a.email ?? null,
+      development: { name: full.development.name, city: full.development.city },
+      unit: { code: full.code, typology: full.typology, areaM2: full.areaM2.toNumber() },
+      input: computed.input, result: computed.result, generatedAt: new Date(), simulationId: 'simulador',
+    },
   };
 }
