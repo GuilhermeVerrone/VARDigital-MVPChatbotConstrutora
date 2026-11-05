@@ -85,8 +85,10 @@ export default async function setup(project: TestProject) {
       await c.query(`drop database if exists ${templateDb}`);
       await c.query(`create database ${templateDb}`);
     });
-    execFileSync(join(PKG_DIR, 'node_modules/.bin/prisma'), ['migrate', 'deploy'], {
+    const win = process.platform === 'win32';
+    execFileSync(join(PKG_DIR, 'node_modules/.bin', win ? 'prisma.CMD' : 'prisma'), ['migrate', 'deploy'], {
       cwd: PKG_DIR,
+      shell: win,
       env: { ...process.env, BOT_DATABASE_URL: withDb(adminUrl, templateDb) },
       stdio: 'pipe',
     });

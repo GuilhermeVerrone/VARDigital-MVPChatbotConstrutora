@@ -23,6 +23,22 @@ Banco do bot (PostgreSQL **separado** do WA-AKG, decisão D5), via Prisma 7 (`pr
 
 Fora do MVP (sem tabela ainda): `DistribuicaoLead`, `ResultadoContato`.
 
+### V2 (Fase 11)
+
+Migration aditiva `20261105120000_v2_data_model` (ver `docs/v2/03-impactos.md` §3). Dados `ILUSTRATIVO` até a construtora validar (D9).
+
+| Model / tabela | O que é |
+|---|---|
+| `SalesCondition` / `sales_conditions` | Condição comercial **por empreendimento**, versionada, com vigência e imutável (mesmo padrão do `ParameterSet`). Vigência, status e autoria em colunas; as regras (3 modos de pagamento) em `rules` (JSON validado pelo `salesConditionSchema` do motor). Repositório em `src/sales-conditions/repository.ts`. |
+| `FlowConfig` / `flow_configs` | Fluxo do bot editável: rascunho → publicada → aposentada. Publicada é imutável. Sem versão publicada, o bot usa `templates.ts`. `src/flow-config.ts`. |
+| `User` e `UserSession` / `users`, `user_sessions` | Usuários do painel (`ADMIN`, `GERENTE`, `CORRETOR`), senha argon2id, sessão por token (só o hash fica no banco), bloqueio após 5 erros. `src/users.ts`. |
+
+Campos novos: `Lead` (`developmentId`, `source`, `utm`, `formSubmittedAt`, `contactConfirmedAt`, `paymentMode`), `Simulation` (`paymentMode`, `salesConditionId`, `downPaymentPlan`, `bankEstimate`; `parameterSetId` e `parametersVersion` agora opcionais), `FinancialProfile` (`cashNow`, `acceptsBalloons`), `Development` (`published`, `heroImage`, `address`, `highlights`, `gallery`) e o tipo `FIRST_CONTACT` em `DeliveryJob` (fora da reserva padrão do worker até a Fase 13). Os campos `signalRatio`/`balloonRatio`/`balloonIntervalMonths` de `Development` seguem na tabela só para o motor do MVP.
+
+Garantias no banco: `sales_conditions_no_overlap` (exclusão por empreendimento e vigência, exige `btree_gist`), `sales_conditions_guard` (imutável, não se apaga) e `flow_configs_guard` (publicada só pode virar aposentada).
+
+**Simulação por modo:** `runAndRecordPaymentSimulation` lê a condição vigente na data, roda `simulatePayment` e grava o modo, o plano e as versões usadas (condição e, se houve estimativa do banco, parâmetros).
+
 ### Garantias no próprio banco (migration, SQL à mão)
 
 - `parameter_sets_no_overlap`: restrição de exclusão (`daterange [valid_from, valid_to]`); nunca há duas versões ativas na mesma data.
@@ -66,7 +82,8 @@ pnpm --filter @mvp/db params import tabela.json --version fin-2026-12 \
 pnpm --filter @mvp/db generate          # gera o client em src/generated (também roda no pnpm install)
 pnpm --filter @mvp/db migrate:deploy    # aplica migrations (BOT_DATABASE_URL)
 pnpm --filter @mvp/db migrate:dev       # cria migration nova a partir do schema (dev)
-pnpm --filter @mvp/db db:seed           # seed idempotente
+pnpm --filter @mvp/db db:seed           # seed idempotente (V2: 3 empreendimentos Elevare; SEED_CATALOG=exemplo usa o do MVP)
+pnpm --filter @mvp/db demo-reset -- --yes # apaga TUDO e refaz o seed da demo (recusa APP_ENV=production)
 ./infra/scripts/db-setup.sh             # migrations + seed + params show no Postgres do compose
 ```
 
@@ -74,7 +91,7 @@ pnpm --filter @mvp/db db:seed           # seed idempotente
 
 Usam **PostgreSQL de verdade**, porque as garantias de vigência e de imutabilidade estão em constraints e triggers. O `test/global-setup.ts`:
 
-1. usa `TEST_DATABASE_URL`, se definido (o usuário precisa de `CREATE DATABASE`); senão
+1. usa `TEST_DATABASE_URL`, se definido (o usuário precisa de `CREATE DATABASE`; ex.: `docker run -d -p 55432:5432 -e POSTGRES_PASSWORD=test postgres:17-alpine`); senão
 2. sobe um cluster descartável com `initdb`/`pg_ctl` do PATH (Homebrew, apt); senão
 3. **falha** com instrução. Não pula: teste de banco ausente não pode passar em silêncio.
 

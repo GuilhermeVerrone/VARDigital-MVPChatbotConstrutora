@@ -154,6 +154,7 @@ export function createDeliveryHandler(deps: DeliveryDeps) {
       case 'CRM_SYNC': return syncCrm(job);
       case 'BROKER_NOTIFY': return notifyBroker(job);
       case 'HANDOFF_NOTIFY': return notifyHandoff(job);
+      case 'FIRST_CONTACT': throw new Error('FIRST_CONTACT ainda não é tratado pelo worker (Fase 13)');
     }
   };
 }

@@ -90,11 +90,11 @@ describe('CLI de parâmetros', () => {
   it('o script real (tsx scripts/params.ts) funciona contra o banco', async () => {
     const run = promisify(execFile);
     const env = { ...process.env, BOT_DATABASE_URL: t.url, PARAMS_TODAY: TODAY };
-    const tsx = join(PKG_DIR, 'node_modules/.bin/tsx');
-    const set = await run(tsx, ['scripts/params.ts', 'set', '--set', 'adjustmentToleranceRatio=0.12', '--from', '2026-11-01', '--by', 'cli', '--reason', 'teste'], { cwd: PKG_DIR, env });
+    const tsx = join(PKG_DIR, 'node_modules/.bin/tsx') + (process.platform === 'win32' ? '.CMD' : '');
+    const set = await run(tsx, ['scripts/params.ts', 'set', '--set', 'adjustmentToleranceRatio=0.12', '--from', '2026-11-01', '--by', 'cli', '--reason', 'teste'], { cwd: PKG_DIR, env, shell: process.platform === 'win32' });
     expect(set.stdout).toContain('adjustmentToleranceRatio: 0.1 → 0.12');
-    const show = await run(tsx, ['scripts/params.ts', 'show', '--date', '2026-11-01'], { cwd: PKG_DIR, env });
+    const show = await run(tsx, ['scripts/params.ts', 'show', '--date', '2026-11-01'], { cwd: PKG_DIR, env, shell: process.platform === 'win32' });
     expect(show.stdout).toContain('tolerância de ajuste 12%');
-    await expect(run(tsx, ['scripts/params.ts', 'show'], { cwd: PKG_DIR, env: { ...env, BOT_DATABASE_URL: '' } })).rejects.toMatchObject({ code: 2 });
+    await expect(run(tsx, ['scripts/params.ts', 'show'], { cwd: PKG_DIR, env: { ...env, BOT_DATABASE_URL: '' }, shell: process.platform === 'win32' })).rejects.toMatchObject({ code: 2 });
   });
 });

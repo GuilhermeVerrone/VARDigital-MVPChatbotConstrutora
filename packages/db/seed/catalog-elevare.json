@@ -1,0 +1,98 @@
+{
+  "status": "ILUSTRATIVO",
+  "note": "Preços, metragens e unidades inventados para a demo (D9): a construtora ainda não passou a tabela real. Corretores e e-mails fictícios: telefones com DDD 00 e e-mails .invalid não alcançam ninguém. Textos e imagens vêm do site institucional (elevare-construtora/).",
+  "developments": [
+    {
+      "slug": "lumen-urban",
+      "name": "Lumen Urban",
+      "city": "Curitiba - PR",
+      "address": "Água Verde, Curitiba - PR",
+      "description": "Studios e apartamentos compactos, a poucos passos do metrô e de tudo que você usa todo dia. São 18 pavimentos de plantas de 28 a 52 m², com sacada, cozinha integrada e ventilação cruzada, e térreo comercial com mercado autônomo e cafeteria.",
+      "deliveryDate": "2029-12-15",
+      "heroImage": "/empreendimentos/lumen-urban/fachada.png",
+      "highlights": ["Plantas de 28 a 52 m²", "108 unidades, 6 por andar", "Sacada em todas as unidades", "Térreo comercial com mercado autônomo e cafeteria", "A poucos passos do metrô"],
+      "gallery": [
+        { "url": "/empreendimentos/lumen-urban/fachada.png", "alt": "Fachada do Lumen Urban" },
+        { "url": "/empreendimentos/lumen-urban/planta-studio.png", "alt": "Planta do studio" },
+        { "url": "/empreendimentos/lumen-urban/planta-um-dorm.png", "alt": "Planta de 1 dormitório" },
+        { "url": "/empreendimentos/lumen-urban/planta-dois-dorm.png", "alt": "Planta de 2 dormitórios" }
+      ],
+      "faq": [
+        { "question": "Qual a previsão de entrega?", "answer": "A previsão de entrega é dezembro de 2029 (ILUSTRATIVO)." },
+        { "question": "Tem vaga de garagem?", "answer": "A vaga é opcional: 1 por unidade, para quem quiser." },
+        { "question": "Aceita FGTS?", "answer": "O FGTS pode compor a entrada ou o financiamento do saldo, conforme as regras da linha de crédito (ILUSTRATIVO)." }
+      ],
+      "materials": [],
+      "units": [
+        { "code": "LU-0304", "typology": "Studio", "areaM2": 28.0, "price": 289000 },
+        { "code": "LU-0807", "typology": "Studio", "areaM2": 30.5, "price": 318000 },
+        { "code": "LU-0912", "typology": "1 dormitório", "areaM2": 39.0, "price": 389000 },
+        { "code": "LU-1405", "typology": "1 dormitório", "areaM2": 41.2, "price": 421000 },
+        { "code": "LU-1610", "typology": "2 dormitórios", "areaM2": 52.0, "price": 529000 }
+      ]
+    },
+    {
+      "slug": "parc-verde",
+      "name": "Parc Verde",
+      "city": "Campinas - SP",
+      "address": "Cambuí, Campinas - SP",
+      "description": "Apartamentos amplos com varanda verde, de frente para um parque de 4.200 m² dentro do condomínio. Os 12 pavimentos recuam em degraus e cada apartamento tem jardineira corrida na sacada. Plantas de 68 a 112 m².",
+      "deliveryDate": "2028-06-30",
+      "heroImage": "/empreendimentos/parc-verde/fachada.png",
+      "highlights": ["Plantas de 68 a 112 m²", "Parque de 4.200 m² dentro do condomínio", "48 unidades, 4 por andar", "1 a 2 vagas por unidade", "Jardineira corrida na sacada"],
+      "gallery": [
+        { "url": "/empreendimentos/parc-verde/fachada.png", "alt": "Fachada do Parc Verde" },
+        { "url": "/empreendimentos/parc-verde/planta-dois-dorm.png", "alt": "Planta de 2 dormitórios" },
+        { "url": "/empreendimentos/parc-verde/planta-tres-dorm.png", "alt": "Planta de 3 dormitórios" },
+        { "url": "/empreendimentos/parc-verde/planta-suite-master.png", "alt": "Planta da suíte master" }
+      ],
+      "faq": [
+        { "question": "Qual a previsão de entrega?", "answer": "A previsão de entrega é junho de 2028; a obra está em andamento (ILUSTRATIVO)." },
+        { "question": "Quantas vagas tem cada unidade?", "answer": "De 1 a 2 vagas, conforme a planta." },
+        { "question": "Aceita FGTS?", "answer": "O FGTS pode compor a entrada ou o financiamento do saldo, conforme as regras da linha de crédito (ILUSTRATIVO)." }
+      ],
+      "materials": [],
+      "units": [
+        { "code": "PV-0302", "typology": "2 dormitórios", "areaM2": 68.0, "price": 689000 },
+        { "code": "PV-0704", "typology": "2 dormitórios", "areaM2": 70.4, "price": 731000 },
+        { "code": "PV-0501", "typology": "3 dormitórios", "areaM2": 89.1, "price": 898000 },
+        { "code": "PV-1103", "typology": "3 dormitórios", "areaM2": 92.0, "price": 986000 },
+        { "code": "PV-1204", "typology": "3 dormitórios com suíte master", "areaM2": 112.0, "price": 1249000 }
+      ]
+    },
+    {
+      "slug": "altomare",
+      "name": "Altomare",
+      "city": "Balneário Camboriú - SC",
+      "address": "Frente Mar, Balneário Camboriú - SC",
+      "description": "Duas residências por andar, de frente para o mar, com sacada gourmet e vista de ponta a ponta. São 24 pavimentos, plantas de 150 a 280 m², elevador privativo que abre direto no hall da unidade e cobertura com terraço e piscina.",
+      "deliveryDate": "2027-03-31",
+      "heroImage": "/empreendimentos/altomare/fachada.png",
+      "highlights": ["Plantas de 150 a 280 m²", "Apenas 2 residências por andar", "Frente mar", "Elevador privativo", "3 a 4 vagas por unidade"],
+      "gallery": [
+        { "url": "/empreendimentos/altomare/fachada.png", "alt": "Fachada do Altomare" },
+        { "url": "/empreendimentos/altomare/planta-tres-suites.png", "alt": "Planta de 3 suítes" },
+        { "url": "/empreendimentos/altomare/planta-quatro-suites.png", "alt": "Planta de 4 suítes" },
+        { "url": "/empreendimentos/altomare/planta-cobertura.png", "alt": "Planta da cobertura" }
+      ],
+      "faq": [
+        { "question": "Qual a previsão de entrega?", "answer": "A previsão de entrega é março de 2027; restam poucas unidades (ILUSTRATIVO)." },
+        { "question": "Quantas vagas tem cada unidade?", "answer": "De 3 a 4 vagas, conforme a planta." },
+        { "question": "Aceita FGTS?", "answer": "O FGTS pode compor a entrada ou o financiamento do saldo, conforme as regras da linha de crédito (ILUSTRATIVO)." }
+      ],
+      "materials": [],
+      "units": [
+        { "code": "AM-1201", "typology": "3 suítes", "areaM2": 149.6, "price": 3290000 },
+        { "code": "AM-1802", "typology": "3 suítes", "areaM2": 152.0, "price": 3590000 },
+        { "code": "AM-1601", "typology": "4 suítes", "areaM2": 195.0, "price": 4690000 },
+        { "code": "AM-2402", "typology": "Cobertura", "areaM2": 280.0, "price": 7900000 }
+      ]
+    }
+  ],
+  "brokers": [
+    { "name": "Corretora Elevare Um", "phone": "5500900000011", "email": "corretor1@elevare.invalid", "team": "Lumen Urban" },
+    { "name": "Corretor Elevare Dois", "phone": "5500900000012", "email": "corretor2@elevare.invalid", "team": "Parc Verde" },
+    { "name": "Corretora Elevare Três", "phone": "5500900000013", "email": "corretor3@elevare.invalid", "team": "Altomare" }
+  ],
+  "adminUser": { "name": "Administração Elevare (demo)", "email": "admin@elevare.invalid" }
+}
