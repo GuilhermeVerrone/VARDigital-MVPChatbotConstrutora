@@ -78,6 +78,8 @@ model Lead {
   /// V2: double opt-in — quando o lead confirmou, no WhatsApp, que pediu a simulação.
   contactConfirmedAt DateTime? @map("contact_confirmed_at") @db.Timestamptz(3)
   paymentMode        PaymentMode? @map("payment_mode")
+  /// V2: código curto (ELV-4821) do lead do formulário. Casa o lead quando a resposta vem de um @lid.
+  contactCode        String?   @unique @map("contact_code")
   status     LeadStatus @default(NEW)
   score      Int?
   scoreClass ScoreClass? @map("score_class")
