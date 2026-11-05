@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { seedDatabase } from '@mvp/db';
+import { createUser, seedDatabase } from '@mvp/db';
 import { createTestDb, type TestDb } from '../../../packages/db/test/db';
 import { createRetention } from '../src/retention';
 
@@ -33,6 +33,15 @@ describe('retenção', () => {
     expect(l.info).toHaveBeenCalledWith(expect.objectContaining({ leads: 1 }), expect.any(String));
     expect(JSON.stringify(l.info.mock.calls)).not.toContain('Antigo');
     expect((await t.sql("select reason from audit_logs where action = 'erased_by_retention'")).rows).toEqual([{ reason: 'retencao' }]);
+  });
+
+  it('apaga as sessões do painel vencidas e mantém as válidas', async () => {
+    const now = new Date('2027-05-01T00:00:00Z');
+    const user = await createUser(t.db, { name: 'Admin', email: 'retencao@example.com', password: 'senha-de-teste-123', role: 'ADMIN' });
+    await t.db.userSession.create({ data: { userId: user.id, tokenHash: 'vencida', expiresAt: new Date('2027-04-30T00:00:00Z') } });
+    await t.db.userSession.create({ data: { userId: user.id, tokenHash: 'valida', expiresAt: new Date('2027-05-02T00:00:00Z') } });
+    await createRetention({ db: t.db, days: 180, intervalMs: 1000, log: log(), now: () => now }).sweep();
+    expect((await t.db.userSession.findMany()).map((x) => x.tokenHash)).toEqual(['valida']);
   });
 
   it('com 0 dias a rotina não roda', async () => {

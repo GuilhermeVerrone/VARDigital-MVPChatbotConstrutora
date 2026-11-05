@@ -1,5 +1,4 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { hash, verify } from '@node-rs/argon2';
 import type { Db } from './client';
 import type { User, UserRole } from './generated/prisma/client';
 
@@ -10,6 +9,10 @@ export const MIN_PASSWORD_LENGTH = 10;
 export const MAX_FAILED_LOGINS = 5;
 export const LOCK_MINUTES = 15;
 export const SESSION_HOURS = 12;
+
+// O módulo nativo só é carregado quando alguém hasheia ou confere uma senha (painel e seed). O bot importa
+// este pacote mas nunca chama estas funções, e o bundle dele (esbuild) deixa o argon2 de fora.
+const argon2 = () => import('@node-rs/argon2');
 
 /** Parâmetros recomendados pela OWASP para argon2id (19 MiB, 2 passes). */
 const ARGON2 = { memoryCost: 19456, timeCost: 2, parallelism: 1 } as const;
@@ -23,12 +26,12 @@ export class InvalidPasswordError extends Error {
 
 export async function hashPassword(password: string): Promise<string> {
   if (password.length < MIN_PASSWORD_LENGTH) throw new InvalidPasswordError();
-  return hash(password, ARGON2);
+  return (await argon2()).hash(password, ARGON2);
 }
 
 export async function verifyPassword(passwordHash: string, password: string): Promise<boolean> {
   try {
-    return await verify(passwordHash, password);
+    return await (await argon2()).verify(passwordHash, password);
   } catch {
     return false;
   }
@@ -79,7 +82,7 @@ export async function login(db: Db, a: LoginArgs): Promise<LoginResult> {
   const user = await db.user.findUnique({ where: { email: a.email.trim().toLowerCase() } });
   if (!user) {
     // gasta o mesmo tempo de um hash real, para não distinguir e-mail inexistente pelo tempo
-    await verifyPassword(DUMMY_HASH ??= await hash('dummy-password', ARGON2), a.password);
+    await verifyPassword(DUMMY_HASH ??= await (await argon2()).hash('dummy-password', ARGON2), a.password);
     return { ok: false, reason: 'INVALID' };
   }
   if (user.lockedUntil && user.lockedUntil > a.now) return { ok: false, reason: 'LOCKED' };
