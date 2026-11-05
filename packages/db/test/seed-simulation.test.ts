@@ -106,7 +106,7 @@ describe('simulação com parâmetros vigentes (aceite da Fase 2)', () => {
 
     // a simulação gravada antes continua apontando para a versão que usou (FK + texto)
     const stored = await t.db.simulation.findUniqueOrThrow({ where: { id: before.simulation.id }, include: { parameterSet: true, creditLine: true } });
-    expect(stored.parameterSet.version).toBe(illustrativeParameters.version);
+    expect(stored.parameterSet!.version).toBe(illustrativeParameters.version);
     expect(stored.creditLine!.code).toBe('sbpe');
     expect(stored.creditLine!.annualInterestRate.toNumber()).toBe(0.1149);
     const storedAfter = await t.db.simulation.findUniqueOrThrow({ where: { id: after.simulation.id }, include: { creditLine: true } });

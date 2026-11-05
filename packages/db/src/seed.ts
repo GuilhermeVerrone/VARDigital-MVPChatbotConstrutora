@@ -43,27 +43,30 @@ export interface SeedSummary {
   brokers: number;
 }
 
+export type SeedParameters = { version: string; validFrom: string };
+
+/** Publica os parâmetros do seed só se ainda não houver nenhuma versão (nunca altera as existentes). */
+export async function ensureParameters(db: Db, params: SeedParameters, today: string): Promise<{ parameters: 'created' | 'kept'; parametersVersion: string }> {
+  const existing = await listParameterSets(db);
+  if (existing.length > 0) return { parameters: 'kept', parametersVersion: existing.at(-1)!.version };
+  const published = await publishParameters(db, {
+    params,
+    version: params.version,
+    validFrom: params.validFrom,
+    actor: 'seed',
+    reason: 'versão inicial (seed ILUSTRATIVO)',
+    today,
+    allowRetroactive: true,
+    action: 'PARAMETERS_IMPORTED',
+  });
+  return { parameters: 'created', parametersVersion: published.created.version };
+}
+
 export async function seedDatabase(db: Db, opts: { today: string; catalog?: Catalog; parameters?: unknown }): Promise<SeedSummary> {
   const catalog = opts.catalog ?? loadCatalog();
-  const params = (opts.parameters ?? illustrativeParameters) as { version: string; validFrom: string };
+  const params = (opts.parameters ?? illustrativeParameters) as SeedParameters;
 
-  let parameters: SeedSummary['parameters'] = 'kept';
-  const existing = await listParameterSets(db);
-  let parametersVersion = existing.at(-1)?.version ?? params.version;
-  if (existing.length === 0) {
-    const published = await publishParameters(db, {
-      params,
-      version: params.version,
-      validFrom: params.validFrom,
-      actor: 'seed',
-      reason: 'versão inicial (seed ILUSTRATIVO)',
-      today: opts.today,
-      allowRetroactive: true,
-      action: 'PARAMETERS_IMPORTED',
-    });
-    parameters = 'created';
-    parametersVersion = published.created.version;
-  }
+  const { parameters, parametersVersion } = await ensureParameters(db, params, opts.today);
 
   const d = catalog.development;
   const devData = {

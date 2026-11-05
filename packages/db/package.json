@@ -12,10 +12,12 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx scripts/seed.ts",
+    "demo-reset": "tsx scripts/demo-reset.ts",
     "params": "tsx scripts/params.ts"
   },
   "dependencies": {
     "@mvp/simulation": "workspace:*",
+    "@node-rs/argon2": "^2.2.2",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "pg": "^8.23.1",

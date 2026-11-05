@@ -36,6 +36,19 @@ enum Channel {
   WEB
 }
 
+/// De onde o lead veio (V2): formulário do site ou conversa iniciada no WhatsApp.
+enum LeadSource {
+  SITE_FORM
+  WHATSAPP
+}
+
+/// Forma de pagamento escolhida (V2, discovery §2): espelha PAYMENT_MODES do motor.
+enum PaymentMode {
+  A_VISTA
+  ENTRADA_A_VISTA
+  ENTRADA_PARCELADA
+}
+
 enum IncomeType {
   CLT
   AUTONOMO
@@ -56,6 +69,15 @@ model Lead {
   birthDate  DateTime?  @map("birth_date") @db.Date
   origin     String?
   campaign   String?
+  /// V2: empreendimento de interesse (formulário do site ou escolha no chat).
+  developmentId String?  @map("development_id") @db.Uuid
+  source     LeadSource @default(WHATSAPP)
+  /// V2: parâmetros UTM do formulário ({ source, medium, campaign, ... }).
+  utm        Json?
+  formSubmittedAt    DateTime? @map("form_submitted_at") @db.Timestamptz(3)
+  /// V2: double opt-in — quando o lead confirmou, no WhatsApp, que pediu a simulação.
+  contactConfirmedAt DateTime? @map("contact_confirmed_at") @db.Timestamptz(3)
+  paymentMode        PaymentMode? @map("payment_mode")
   status     LeadStatus @default(NEW)
   score      Int?
   scoreClass ScoreClass? @map("score_class")
@@ -64,6 +86,7 @@ model Lead {
   updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   broker           Broker?            @relation(fields: [brokerId], references: [id], onDelete: SetNull)
+  development      Development?       @relation(fields: [developmentId], references: [id], onDelete: SetNull)
   consents         Consent[]
   conversations    Conversation[]
   financialProfile FinancialProfile?
@@ -72,6 +95,7 @@ model Lead {
   jobs             DeliveryJob[]
 
   @@index([brokerId])
+  @@index([developmentId])
   @@map("leads")
 }
 
@@ -138,6 +162,10 @@ model FinancialProfile {
   coApplicantMonthlyDebts    Decimal?    @map("co_applicant_monthly_debts") @db.Decimal(14, 2)
   coApplicantFgtsBalance     Decimal?    @map("co_applicant_fgts_balance") @db.Decimal(14, 2)
   coApplicantFgtsMonths      Int?        @map("co_applicant_fgts_months")
+  /// V2: dinheiro disponível hoje para o ato / a entrada.
+  cashNow                    Decimal?    @map("cash_now") @db.Decimal(14, 2)
+  /// V2: o lead aceita reforços (intermediárias) na entrada parcelada.
+  acceptsBalloons            Boolean?    @map("accepts_balloons")
   updatedAt                  DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
@@ -167,7 +195,16 @@ model Development {
   faq          Json     @default("[]")
   /// Materiais (plantas, book): [{ title, url }].
   materials    Json     @default("[]")
-  /// Fluxo de pagamento da obra (RF-23 simples): frações da entrada e intervalo dos reforços.
+  /// V2: aparece no site público só quando publicado.
+  published    Boolean  @default(false)
+  heroImage    String?  @map("hero_image")
+  address      String?
+  /// Destaques do empreendimento: string[].
+  highlights   Json     @default("[]")
+  /// Galeria: [{ url, alt }].
+  gallery      Json     @default("[]")
+  /// MVP (legado): fluxo da obra simples. Na V2 estes três campos migram para a condição comercial
+  /// (SalesCondition); seguem aqui só para o motor do MVP até a Fase 12.
   signalRatio           Decimal? @map("signal_ratio") @db.Decimal(5, 4)
   balloonRatio          Decimal? @map("balloon_ratio") @db.Decimal(5, 4)
   balloonIntervalMonths Int?     @map("balloon_interval_months")
@@ -177,7 +214,9 @@ model Development {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  units Unit[]
+  units           Unit[]
+  salesConditions SalesCondition[]
+  leads           Lead[]
 
   @@map("developments")
 }
@@ -297,6 +336,123 @@ model CreditLine {
 }
 
 // ---------------------------------------------------------------------------
+// Condições comerciais com vigência (V2, discovery §2)
+// ---------------------------------------------------------------------------
+
+/// Versão imutável das regras comerciais de UM empreendimento (as 3 formas de pagamento). Mesmo
+/// padrão do ParameterSet: alterar = publicar nova versão. As regras ficam em `rules` (JSON validado
+/// por `salesConditionSchema` do motor); vigência, status e autoria ficam em colunas para o banco
+/// garantir a linha do tempo (sem sobreposição por empreendimento) e a imutabilidade.
+model SalesCondition {
+  id             String          @id @default(uuid()) @db.Uuid
+  developmentId  String          @map("development_id") @db.Uuid
+  version        String          @unique
+  status         ParameterStatus
+  validFrom      DateTime        @map("valid_from") @db.Date
+  validTo        DateTime?       @map("valid_to") @db.Date
+  /// Regras no formato `SalesCondition` do motor, sem version/status/validFrom/validTo.
+  rules          Json
+  basedOnId      String?         @map("based_on_id") @db.Uuid
+  supersededById String?         @unique @map("superseded_by_id") @db.Uuid
+  createdBy      String          @map("created_by")
+  note           String?
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  development  Development      @relation(fields: [developmentId], references: [id], onDelete: Restrict)
+  basedOn      SalesCondition?  @relation("SalesConditionLineage", fields: [basedOnId], references: [id], onDelete: Restrict)
+  derived      SalesCondition[] @relation("SalesConditionLineage")
+  supersededBy SalesCondition?  @relation("SalesConditionSuperseded", fields: [supersededById], references: [id], onDelete: Restrict)
+  supersedes   SalesCondition?  @relation("SalesConditionSuperseded")
+  simulations  Simulation[]
+
+  @@index([developmentId, validFrom])
+  @@map("sales_conditions")
+}
+
+// ---------------------------------------------------------------------------
+// Fluxo do bot editável (V2, D11)
+// ---------------------------------------------------------------------------
+
+enum FlowConfigStatus {
+  DRAFT
+  PUBLISHED
+  /// Publicada e depois trocada por outra mais nova (continua no histórico).
+  RETIRED
+}
+
+/// Versão do fluxo do bot: textos por chave, etapas opcionais ligadas/desligadas, botões e 1ª mensagem
+/// (`content`, validado na aplicação). Rascunho é editável; publicada é imutável. Sem versão
+/// publicada, o bot usa os textos de templates.ts.
+model FlowConfig {
+  id          String           @id @default(uuid()) @db.Uuid
+  /// Sequencial: a publicada de maior número é a vigente.
+  version     Int              @unique @default(autoincrement())
+  status      FlowConfigStatus @default(DRAFT)
+  content     Json
+  basedOnId   String?          @map("based_on_id") @db.Uuid
+  createdBy   String           @map("created_by")
+  note        String?
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime?        @map("published_at") @db.Timestamptz(3)
+  publishedBy String?          @map("published_by")
+
+  basedOn FlowConfig?  @relation("FlowConfigLineage", fields: [basedOnId], references: [id], onDelete: Restrict)
+  derived FlowConfig[] @relation("FlowConfigLineage")
+
+  @@index([status])
+  @@map("flow_configs")
+}
+
+// ---------------------------------------------------------------------------
+// Usuários do painel (V2, D8)
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  GERENTE
+  CORRETOR
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  email        String    @unique
+  /// Hash argon2 (nunca a senha).
+  passwordHash String    @map("password_hash")
+  role         UserRole
+  /// Corretor vinculado (papel CORRETOR vê só os próprios leads).
+  brokerId     String?   @unique @map("broker_id") @db.Uuid
+  active       Boolean   @default(true)
+  failedLogins Int       @default(0) @map("failed_logins")
+  lockedUntil  DateTime? @map("locked_until") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  broker   Broker?       @relation(fields: [brokerId], references: [id], onDelete: SetNull)
+  sessions UserSession[]
+
+  @@map("users")
+}
+
+/// Sessão do painel: só o hash do token é guardado.
+model UserSession {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  tokenHash  String   @unique @map("token_hash")
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  ip         String?
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+// ---------------------------------------------------------------------------
 // Simulação
 // ---------------------------------------------------------------------------
 
@@ -312,6 +468,14 @@ model Simulation {
   unitId              String?             @map("unit_id") @db.Uuid
   /// Linha escolhida pelo motor (null quando nenhuma é elegível).
   creditLineId        String?             @map("credit_line_id") @db.Uuid
+  /// V2: forma de pagamento simulada (null = simulação do MVP, só financiamento).
+  paymentMode         PaymentMode?        @map("payment_mode")
+  /// V2: versão da condição comercial usada (null no MVP).
+  salesConditionId    String?             @map("sales_condition_id") @db.Uuid
+  /// V2: plano da entrada (ato, mensais, reforços, chaves) como saiu do motor.
+  downPaymentPlan     Json?               @map("down_payment_plan")
+  /// V2: estimativa opcional do financiamento do saldo (D10).
+  bankEstimate        Json?               @map("bank_estimate")
   system              AmortizationSystem?
   termMonths          Int?                @map("term_months")
   referenceDate       DateTime            @map("reference_date") @db.Date
@@ -325,8 +489,9 @@ model Simulation {
   constructionFlow    Json?               @map("construction_flow")
   verdict             Verdict
   /// Versão dos parâmetros usada (spec §10 parametros_versao). Gravada também como FK.
-  parametersVersion   String              @map("parameters_version")
-  parameterSetId      String              @map("parameter_set_id") @db.Uuid
+  /// V2: nulo quando o modo não usa o banco (à vista) ou a estimativa está desligada.
+  parametersVersion   String?             @map("parameters_version")
+  parameterSetId      String?             @map("parameter_set_id") @db.Uuid
   /// Entrada e resultado completos do motor (auditoria e reprodução do cálculo).
   input               Json
   result              Json
@@ -336,11 +501,13 @@ model Simulation {
   lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
   unit         Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
   creditLine   CreditLine?  @relation(fields: [creditLineId], references: [id], onDelete: Restrict)
-  parameterSet ParameterSet @relation(fields: [parameterSetId], references: [id], onDelete: Restrict)
+  parameterSet ParameterSet? @relation(fields: [parameterSetId], references: [id], onDelete: Restrict)
+  salesCondition SalesCondition? @relation(fields: [salesConditionId], references: [id], onDelete: Restrict)
   jobs         DeliveryJob[]
 
   @@index([leadId])
   @@index([parameterSetId])
+  @@index([salesConditionId])
   @@map("simulations")
 }
 
@@ -365,6 +532,7 @@ model Broker {
   leads       Lead[]
   crmContacts CrmContact[]
   taken       Conversation[]
+  user        User?
 
   @@map("brokers")
 }
@@ -373,7 +541,7 @@ model Broker {
 model AuditLog {
   /// Sequencial: dá a ordem exata dos eventos (vários na mesma transação têm o mesmo `at`).
   id       BigInt   @id @default(autoincrement())
-  /// Quem fez (usuário da CLI, "seed", "system"). Sem tabela de usuários no MVP.
+  /// Quem fez: id do User (painel, V2), usuário da CLI, "seed" ou "system".
   actor    String
   entity   String
   entityId String?  @map("entity_id")
@@ -497,7 +665,7 @@ enum JobStatus {
 /// pessoal. Falha enfileira de novo com espera (spec §7.2: nenhum lead se perde).
 model DeliveryJob {
   id           String    @id @default(uuid()) @db.Uuid
-  /// CRM_SYNC | BROKER_NOTIFY | HANDOFF_NOTIFY
+  /// CRM_SYNC | BROKER_NOTIFY | HANDOFF_NOTIFY | FIRST_CONTACT (V2: 1ª mensagem do formulário do site)
   kind         String
   /// Entregas de simulação (CRM_SYNC, BROKER_NOTIFY).
   simulationId String?   @map("simulation_id") @db.Uuid
