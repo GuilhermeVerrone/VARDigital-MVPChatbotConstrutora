@@ -2,24 +2,24 @@ import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from 'pdf
 import { ALERT_FOR_BROKER, SUGGESTION_FOR_LEAD } from './phrases';
 import { ageYears, areaM2, brl, dateBr, dateTimeBr, firstName, INCOME_TYPE_LABEL, joinList, monthYear, pct, termText } from './format';
 import { ILLUSTRATIVE_LINE, LEGAL_LINES } from './legal';
-import type { SimulationView } from './types';
+import type { PaymentView, SimulationView } from './types';
 
 // PDF simples da simulação (RF-32): uma ou duas páginas, só texto e tabelas, com o aviso legal.
 // A identidade visual da construtora é pós-MVP. Fonte padrão (WinAnsi): sem emojis.
 
-const A4 = { w: 595.28, h: 841.89 };
-const M = 48;
-const INK = rgb(0.12, 0.14, 0.18);
-const MUTED = rgb(0.4, 0.43, 0.48);
-const ACCENT = rgb(0.1, 0.3, 0.55);
-const WARN = rgb(0.72, 0.15, 0.1);
+export const A4 = { w: 595.28, h: 841.89 };
+export const M = 48;
+export const INK = rgb(0.12, 0.14, 0.18);
+export const MUTED = rgb(0.4, 0.43, 0.48);
+export const ACCENT = rgb(0.1, 0.3, 0.55);
+export const WARN = rgb(0.72, 0.15, 0.1);
 
-const VERDICT = { VIAVEL: 'Viável', VIAVEL_COM_AJUSTES: 'Viável com ajustes', INVIAVEL: 'Inviável no momento' } as const;
+export const VERDICT = { VIAVEL: 'Viável', VIAVEL_COM_AJUSTES: 'Viável com ajustes', INVIAVEL: 'Inviável no momento' } as const;
 
 /** Remove o que a fonte padrão não codifica (emojis, setas), para o PDF nunca falhar por um caractere. */
-const clean = (s: string): string => s.replace(/[^\x20-\x7E\xA1-\xFF–—‘-”•€]/gu, '').replace(/\s+/g, ' ').trim();
+export const clean = (s: string): string => s.replace(/[^\x20-\x7E\xA1-\xFF–—‘-”•€]/gu, '').replace(/\s+/g, ' ').trim();
 
-class Writer {
+export class Writer {
   page!: PDFPage;
   y = 0;
   constructor(private doc: PDFDocument, private font: PDFFont, private bold: PDFFont) {
@@ -181,7 +181,21 @@ export async function buildSimulationPdf(view: SimulationView): Promise<Uint8Arr
   return doc.save({ useObjectStreams: false });
 }
 
-export const pdfFileName = (view: SimulationView): string => {
+export const pdfFileName = (view: SimulationView | PaymentView): string => {
   const name = (firstName(view.leadName) ?? 'simulacao').normalize('NFD').replace(/[^\w]/g, '').toLowerCase() || 'simulacao';
   return `simulacao-${name}-${view.input.referenceDate}.pdf`;
 };
+
+/** Documento e escritor prontos, com os metadados de data fixos (o mesmo PDF sai igual quando refeito). */
+export async function openPdf(title: string, subject: string, generatedAt: Date): Promise<{ doc: PDFDocument; w: Writer }> {
+  const doc = await PDFDocument.create();
+  doc.setTitle(title);
+  doc.setSubject(subject);
+  doc.setCreator('mvp-chatbot-construtora');
+  doc.setProducer('mvp-chatbot-construtora');
+  doc.setCreationDate(generatedAt);
+  doc.setModificationDate(generatedAt);
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  return { doc, w: new Writer(doc, font, bold) };
+}

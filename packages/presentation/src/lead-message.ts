@@ -28,7 +28,7 @@ function intro(view: SimulationView): string {
   return `${who}${verb} do *${view.development.name}* para ${unit}.${tail}`;
 }
 
-function financingBlock(f: FinancingResult, termMonths: number | null, highCommitment: boolean): string | null {
+export function financingBlock(f: FinancingResult, termMonths: number | null, highCommitment: boolean): string | null {
   if (!f.firstInstallment) return null;
   const lines: string[] = [f.shortfall > 0 ? '*Se a entrada mínima fosse paga, ficaria assim*' : '*Como ficaria*'];
   lines.push(`• Entrada em dinheiro: ${brl(f.downPaymentUsed)}`);
