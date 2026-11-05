@@ -65,7 +65,7 @@ async function handedOffLead() {
   const conv = await t.db.conversation.create({ data: { leadId: lead.id, channel: 'WHATSAPP', state: 'NAME' } });
   const snap: Snapshot = { ...initialSnapshot(), state: 'HANDOFF', data: { name: 'Maria' }, handoffFrom: 'INCOME' };
   const { history, ...context } = snap;
-  await saveTurn(t.db, { conversationId: conv.id, leadId: lead.id, state: 'HANDOFF', context: context as object, history, writes: { handoff: true, status: 'HANDOFF' } });
+  await saveTurn(t.db, { conversationId: conv.id, leadId: lead.id, state: 'HANDOFF', context: context as object, history: history as object[], writes: { handoff: true, status: 'HANDOFF' } });
   return { lead, conv, jid: `${phone}@s.whatsapp.net`, snap };
 }
 

@@ -1,5 +1,5 @@
 import type { Db } from '../client';
-import { Prisma } from '../generated/prisma/client';
+import type { Prisma } from '../generated/prisma/client';
 import type { LeadSource, LeadStatus, PaymentMode, ScoreClass, Verdict } from '../generated/prisma/enums';
 import { LEAD_ENTITY, recordStatusChange } from '../lead-status';
 import { resolveActorNames } from './audit';
