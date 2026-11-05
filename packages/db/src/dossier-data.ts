@@ -1,4 +1,4 @@
-import type { SimulationInput, SimulationResult } from '@mvp/simulation';
+import type { PaymentInput, PaymentResult, SimulationInput, SimulationResult } from '@mvp/simulation';
 import type { Db } from './client';
 import type { Broker, Development, FinancialProfile, Lead, Simulation, Unit } from './generated/prisma/client';
 import type { ScoreClass, Verdict } from './generated/prisma/enums';
@@ -6,8 +6,12 @@ import type { ScoreClass, Verdict } from './generated/prisma/enums';
 /** Tudo o que a apresentação e o dossiê precisam de uma simulação gravada. */
 export interface SimulationBundle {
   simulation: Simulation;
+  /** Só vale quando `payment` é null (simulação de financiamento do MVP). */
   result: SimulationResult;
+  /** Só vale quando `payment` é null (simulação de financiamento do MVP). */
   input: SimulationInput;
+  /** Presente nas simulações por forma de pagamento (V2): o modo, a entrada e o resultado do motor. */
+  payment: { input: PaymentInput; result: PaymentResult } | null;
   lead: Lead;
   profile: FinancialProfile | null;
   unit: Unit | null;
@@ -26,6 +30,9 @@ export async function loadSimulationBundle(db: Db, simulationId: string): Promis
     simulation: rest as Simulation,
     result: simulation.result as unknown as SimulationResult,
     input: simulation.input as unknown as SimulationInput,
+    payment: simulation.paymentMode
+      ? { input: simulation.input as unknown as PaymentInput, result: simulation.result as unknown as PaymentResult }
+      : null,
     lead: leadRow as Lead,
     profile: financialProfile,
     unit: unit ? ({ ...unit, development: undefined } as unknown as Unit) : null,

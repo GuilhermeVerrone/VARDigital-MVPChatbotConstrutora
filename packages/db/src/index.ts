@@ -135,6 +135,8 @@ export {
   deleteSession,
   findReleasableHandoff,
   listActiveTypologies,
+  listDevelopmentCatalog,
+  type CatalogDevelopment,
   listOpenHandoffs,
   loadChat,
   releaseHandoff,

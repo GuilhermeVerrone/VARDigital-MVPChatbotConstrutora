@@ -1,9 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import type { Db } from './client';
 import type { Prisma } from './generated/prisma/client';
-import type { IncomeType, LeadStatus, ScoreClass } from './generated/prisma/enums';
+import type { IncomeType, LeadStatus, PaymentMode, ScoreClass } from './generated/prisma/enums';
 import { enqueueJob, type EnqueueJobArgs } from './jobs';
 import { dateFromIso } from './convert';
+import { offeredModes } from '@mvp/simulation';
+import { findSalesConditionInForce } from './sales-conditions/repository';
 
 // Persistência da conversa (Fase 5). O estado da máquina (`context`) é opaco aqui: quem entende é
 // o orquestrador. Antes do consentimento nada vai para `leads`/`conversations`: só `chat_sessions`,
@@ -97,6 +99,9 @@ export async function startConversation(db: Db, a: StartConversationArgs): Promi
 }
 
 export interface ProfileInput {
+  /** Dinheiro disponível hoje (ato ou entrada de uma vez), nas formas de pagamento da V2. */
+  cashNow?: number;
+  acceptsBalloons?: boolean;
   income: number;
   incomeType: IncomeType;
   debts: number;
@@ -118,7 +123,9 @@ function randomHandoffCode(): string {
 }
 
 export interface TurnWrites {
-  lead?: { name?: string; phone?: string; email?: string | null; birthDate?: string };
+  lead?: { name?: string; phone?: string; email?: string | null; birthDate?: string; developmentId?: string; paymentMode?: PaymentMode };
+  /** Double opt-in: o lead do formulário confirmou que pediu a simulação (grava `contactConfirmedAt`). */
+  contactConfirmed?: boolean;
   status?: LeadStatus;
   handoff?: boolean;
   /** Momento do turno (padrão: agora): data do handoff e da revogação do consentimento. */
@@ -162,6 +169,9 @@ export async function saveTurn(db: Db, a: SaveTurnArgs): Promise<void> {
     if (w.lead?.name !== undefined) leadData.name = w.lead.name;
     if (w.lead?.email !== undefined) leadData.email = w.lead.email;
     if (w.lead?.birthDate !== undefined) leadData.birthDate = dateFromIso(w.lead.birthDate);
+    if (w.lead?.developmentId !== undefined) leadData.development = { connect: { id: w.lead.developmentId } };
+    if (w.lead?.paymentMode !== undefined) leadData.paymentMode = w.lead.paymentMode;
+    if (w.contactConfirmed) leadData.contactConfirmedAt = w.at ?? new Date();
     if (w.lead?.phone !== undefined) {
       // phone é único (RF-41): se já é de outro lead, não sobrescreve (a deduplicação é da Fase 6).
       const owner = await tx.lead.findUnique({ where: { phone: w.lead.phone } });
@@ -188,6 +198,7 @@ export async function saveTurn(db: Db, a: SaveTurnArgs): Promise<void> {
         firstFinancing: p.firstFinancing,
         coApplicantIncome: p.co?.income ?? null, coApplicantIncomeType: p.co?.incomeType ?? null,
         coApplicantBirthDate: p.co ? dateFromIso(p.co.birthDate) : null, coApplicantMonthlyDebts: p.co?.debts ?? null,
+        cashNow: p.cashNow ?? null, acceptsBalloons: p.acceptsBalloons ?? null,
       };
       await tx.financialProfile.upsert({ where: { leadId: a.leadId }, create: { leadId: a.leadId, ...row }, update: row });
     }
@@ -292,4 +303,45 @@ export async function listOpenHandoffs(db: Db, brokerId: string): Promise<Waitin
     orderBy: { handoffAt: 'asc' },
   });
   return rows.map((r) => ({ code: r.handoffCode!, name: r.lead.name, since: r.handoffAt, takenByMe: r.takenByBrokerId === brokerId }));
+}
+
+// ---------------------------------------------------------------------------
+// V2: catálogo para a conversa (empreendimentos, tipologias e regras comerciais vigentes)
+// ---------------------------------------------------------------------------
+
+export interface CatalogDevelopment {
+  id: string;
+  name: string;
+  /** Tipologias com unidade disponível. */
+  typologies: string[];
+  /** Regras da condição comercial vigente; null = sem condição (o empreendimento segue o fluxo do MVP). */
+  sales: { modes: PaymentMode[]; bankEstimate: boolean; balloonIntervalMonths: number | null } | null;
+}
+
+/**
+ * Empreendimentos ativos com tipologias e o que a condição vigente oferece. Só os que têm unidade
+ * disponível. A ordem é a de cadastro (a do menu de escolha).
+ */
+export async function listDevelopmentCatalog(db: Db, today: string): Promise<CatalogDevelopment[]> {
+  const devs = await db.development.findMany({
+    where: { active: true },
+    orderBy: { createdAt: 'asc' },
+    include: { units: { where: { status: 'AVAILABLE' }, select: { typology: true } } },
+  });
+  const out: CatalogDevelopment[] = [];
+  for (const d of devs) {
+    const typologies = [...new Set(d.units.map((u) => u.typology))].sort();
+    if (typologies.length === 0) continue;
+    const found = await findSalesConditionInForce(db, d.id, today);
+    const c = found?.condition;
+    out.push({
+      id: d.id,
+      name: d.name,
+      typologies,
+      sales: c
+        ? { modes: offeredModes(c), bankEstimate: c.bankEstimate.enabled, balloonIntervalMonths: c.installments.enabled ? (c.installments.balloons?.intervalMonths ?? null) : null }
+        : null,
+    });
+  }
+  return out;
 }
