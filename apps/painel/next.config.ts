@@ -1,6 +1,10 @@
+import { resolve } from 'node:path';
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
+  // Imagem Docker enxuta (infra/docker/next.Dockerfile). A raiz do rastreio é a do monorepo, para levar os pacotes do workspace.
+  output: 'standalone',
+  outputFileTracingRoot: resolve(process.cwd(), '../..'),
   // Os pacotes do workspace são TypeScript puro (sem build): o Next precisa transpilá-los.
   transpilePackages: ['@mvp/db', '@mvp/simulation', '@mvp/ui', '@mvp/conversation', '@mvp/parsers', '@mvp/presentation', '@mvp/llm'],
   // Módulos nativos / drivers ficam fora do bundle do servidor.
