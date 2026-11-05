@@ -42,7 +42,7 @@ Rodei site, painel e bot (bundle, com `--max-old-space-size=160`) e Postgres sem
 | painel | 140 | 398 |
 | Postgres (padrão, sem os ajustes do Compose) | 74 | 229 |
 
-**Estimativa da stack completa:** somando bot + site + painel desta medição (≈ 940 MiB) aos containers do WA-AKG, do MySQL e do Postgres medidos em Docker na Fase 11b (≈ 440 MiB sem o bot) dá **cerca de 1,4 GB de pico**, dentro do teto de 2,5 GB.
+**Estimativa da stack completa:** somando bot + site + painel desta medição (≈ 940 MiB) aos containers do WA-AKG, do MySQL e do Postgres medidos em Docker na Fase 11b (WA-AKG 215 + MySQL 262 + Postgres do bot 56 ≈ 530 MiB) dá **cerca de 1,5 GB de pico**, dentro do teto de 2,5 GB.
 
 Limites, para ninguém ler isto como o número final:
 1. macOS, não Docker/Linux. O RSS do Node no macOS é maior que no container (na 11b o bot mediu 193 MiB; aqui 297). Para site e painel o número é um teto razoável, mas não é o do container.

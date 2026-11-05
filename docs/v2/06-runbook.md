@@ -50,7 +50,7 @@ docker compose up -d bot site painel
 
 ## Memória (VPS de 4 GB)
 
-Medição da Fase 16 (detalhes e limites em [fase-16.md](../fases/fase-16.md)): bot ≈ 300 MiB, site ≈ 240 MiB e painel ≈ 400 MiB de pico no macOS sob a carga da demo, somados aos containers medidos na Fase 11b (WA-AKG, MySQL e Postgres do bot, ≈ 730 MiB). Ordem de grandeza: **~1,4 GB de pico**, dentro do teto de 2,5 GB. Ao escrever o Compose do site e do painel use como ponto de partida: painel `mem_limit` 512m, site 384m, `--max-old-space-size` ≈ 70% do limite, e confirme com `infra/scripts/measure-memory.sh`.
+Medição da Fase 16 (detalhes e limites em [fase-16.md](../fases/fase-16.md)): bot ≈ 300 MiB, site ≈ 240 MiB e painel ≈ 400 MiB de pico no macOS sob a carga da demo, somados aos containers medidos na Fase 11b (WA-AKG, MySQL e Postgres do bot, ≈ 530 MiB). Ordem de grandeza: **~1,5 GB de pico**, dentro do teto de 2,5 GB. Ao escrever o Compose do site e do painel use como ponto de partida: painel `mem_limit` 512m, site 384m, `--max-old-space-size` ≈ 70% do limite, e confirme com `infra/scripts/measure-memory.sh`.
 
 ## Pendente (não feito na Fase 16, por decisão do usuário)
 
