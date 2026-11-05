@@ -7,6 +7,9 @@ import { requireAction, toFormState } from '@/lib/server';
 import { checkConditionDraft, previewConditionService, publishConditionDraft, type PreviewOutput } from '@/lib/services';
 
 export interface ConditionState {
+  /** O que foi enviado: o React limpa o formulário após a ação, então o editor reaplica estes valores. */
+  sent?: Record<string, string>;
+  at?: number;
   ok?: string;
   error?: string;
   fields?: Record<string, string>;
@@ -25,17 +28,19 @@ function read(form: FormData) {
   };
 }
 
+const echo = (f: ReturnType<typeof read>) => ({ sent: { ...f.values, validFrom: f.validFrom, reason: f.reason, unitId: f.unitId, profileId: f.profileId }, at: Date.now() });
+
 /** Valida o rascunho, mostra o que muda e calcula a prévia dos modos com o motor real. Não grava. */
 export async function previewConditionAction(developmentId: string, _prev: ConditionState, form: FormData): Promise<ConditionState> {
   const { ctx } = await requireAction();
   const f = read(form);
   try {
     const check = await checkConditionDraft(ctx, { developmentId, values: f.values, validFrom: f.validFrom });
-    if (!check.condition) return { fields: check.errors, error: 'Corrija os campos destacados para calcular a prévia.' };
+    if (!check.condition) return { ...echo(f), fields: check.errors, error: 'Corrija os campos destacados para calcular a prévia.' };
     const preview = await previewConditionService(ctx, { developmentId, unitId: f.unitId, profileId: f.profileId, values: f.values, referenceDate: todayIso() });
-    return { preview, changes: check.changes, current: check.current };
+    return { ...echo(f), preview, changes: check.changes, current: check.current };
   } catch (err) {
-    return toFormState(err);
+    return { ...echo(f), ...toFormState(err) };
   }
 }
 
@@ -47,8 +52,8 @@ export async function publishConditionAction(developmentId: string, _prev: Condi
     const res = await publishConditionDraft(ctx, { developmentId, values: f.values, validFrom: f.validFrom, reason: f.reason });
     revalidatePath(`/empreendimentos/${developmentId}/condicoes`);
     revalidatePath('/');
-    return { ok: `Versão ${res.created.version} publicada, valendo desde ${f.validFrom.split('-').reverse().join('/')}.`, changes: res.changes };
+    return { ...echo(f), ok: `Versão ${res.created.version} publicada, valendo desde ${f.validFrom.split('-').reverse().join('/')}.`, changes: res.changes };
   } catch (err) {
-    return toFormState(err);
+    return { ...echo(f), ...toFormState(err) };
   }
 }

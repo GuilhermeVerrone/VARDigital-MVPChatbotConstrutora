@@ -24,6 +24,9 @@ export function ConditionEditor({ developmentId, values, units, profiles, today,
   const [pv, previewDispatch] = useActionState<ConditionState, FormData>(previewConditionAction.bind(null, developmentId), {});
   const [pb, publishDispatch] = useActionState<ConditionState, FormData>(publishConditionAction.bind(null, developmentId), {});
   const errors = { ...pv.fields, ...pb.fields };
+  // O React limpa o formulário ao fim da ação: reaplica o que foi enviado pela ação mais recente.
+  const sent = (pb.at ?? 0) > (pv.at ?? 0) ? pb.sent : pv.sent;
+  const val = (name: string, fallback?: string) => sent?.[name] ?? fallback;
   return (
     <form className="editor">
       <div className="editor-form">
@@ -34,11 +37,11 @@ export function ConditionEditor({ developmentId, values, units, profiles, today,
             <div className="form-grid">
               {g.fields.map((f) =>
                 f.kind === 'bool' ? (
-                  <CheckField key={f.name} name={f.name} label={f.label} defaultChecked={values[f.name] === 'on'} />
+                  <CheckField key={f.name} name={f.name} label={f.label} defaultChecked={val(f.name, values[f.name]) === 'on'} />
                 ) : f.kind === 'select' ? (
-                  <SelectField key={f.name} name={f.name} label={f.label} hint={f.hint} defaultValue={values[f.name]} error={errors[f.name]} options={(f.options ?? []).map((o) => ({ value: o, label: o }))} />
+                  <SelectField key={f.name} name={f.name} label={f.label} hint={f.hint} defaultValue={val(f.name, values[f.name])} error={errors[f.name]} options={(f.options ?? []).map((o) => ({ value: o, label: o }))} />
                 ) : (
-                  <TextField key={f.name} name={f.name} label={f.label} hint={f.hint} defaultValue={values[f.name]} error={errors[f.name]} inputMode="decimal" />
+                  <TextField key={f.name} name={f.name} label={f.label} hint={f.hint} defaultValue={val(f.name, values[f.name])} error={errors[f.name]} inputMode="decimal" />
                 ),
               )}
             </div>
@@ -48,9 +51,9 @@ export function ConditionEditor({ developmentId, values, units, profiles, today,
           <fieldset>
             <legend>Publicar</legend>
             <div className="form-grid">
-              <TextField name="validFrom" label="Vale a partir de" type="date" defaultValue={today} error={errors.validFrom} hint="Não pode ser anterior a hoje. A versão vigente passa a terminar na véspera." />
+              <TextField name="validFrom" label="Vale a partir de" type="date" defaultValue={val('validFrom', today)} error={errors.validFrom} hint="Não pode ser anterior a hoje. A versão vigente passa a terminar na véspera." />
               <Field label="Motivo da alteração" name="reason" error={errors.reason} hint="Fica na auditoria, junto com o seu usuário.">
-                <textarea id="reason" name="reason" rows={2} />
+                <textarea id="reason" name="reason" rows={2} defaultValue={val('reason', '')} />
               </Field>
             </div>
             {pb.ok ? <Notice kind="ok">{pb.ok}</Notice> : null}
@@ -64,8 +67,8 @@ export function ConditionEditor({ developmentId, values, units, profiles, today,
       <aside className="editor-preview" aria-label="Calculadora de prévia">
         <h2>Prévia</h2>
         <p className="muted small">Escolha a unidade e um perfil de exemplo. O cálculo usa o motor real, com os valores do formulário (mesmo que ainda não publicados).</p>
-        <SelectField name="unitId" label="Unidade" options={units.map((u) => ({ value: u.id, label: `${u.label} · ${brl(u.price, 0)}` }))} />
-        <SelectField name="profileId" label="Perfil de exemplo" options={profiles.map((p) => ({ value: p.id, label: p.label }))} />
+        <SelectField name="unitId" label="Unidade" defaultValue={val('unitId')} options={units.map((u) => ({ value: u.id, label: `${u.label} · ${brl(u.price, 0)}` }))} />
+        <SelectField name="profileId" label="Perfil de exemplo" defaultValue={val('profileId')} options={profiles.map((p) => ({ value: p.id, label: p.label }))} />
         <SubmitButton formAction={previewDispatch} variant="ghost" pendingLabel="Calculando…">Calcular prévia</SubmitButton>
         {pv.error ? <Notice kind="error">{pv.error}</Notice> : null}
         {pv.preview ? <PreviewView preview={pv.preview} changes={pv.changes} current={pv.current} /> : <p className="muted small">A prévia aparece aqui, com o que muda em relação à vigente.</p>}
