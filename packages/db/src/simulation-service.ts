@@ -301,23 +301,40 @@ export interface RecordedPaymentSimulation {
   parametersVersion: string | null;
 }
 
+export interface ComputePaymentArgs extends LoadParametersOptions, LoadSalesConditionOptions {
+  mode: PaymentMode;
+  referenceDate: string;
+  lead: Pick<Lead, 'birthDate'>;
+  profile: FinancialProfile | null;
+  unit: Unit & { development: Development };
+  choices?: PaymentSimulationChoices;
+  /** Condição a usar no lugar da vigente (prévia de rascunho no painel). Sem isto, lê a vigente do banco. */
+  conditionOverride?: SalesCondition;
+}
+
+export interface ComputedPayment {
+  /** Versão gravada da condição; null quando a prévia usa um rascunho (conditionOverride). */
+  stored: { id: string; version: string; condition: SalesCondition } | null;
+  input: PaymentInput;
+  result: PaymentResult;
+  usedParameters: { id: string; version: string } | null;
+}
+
 /**
- * Simula a forma de pagamento escolhida com a condição comercial VIGENTE do empreendimento na data
- * e grava a simulação com o modo, o plano da entrada e as versões usadas (condição e, se houve
- * estimativa do banco, parâmetros). O motor continua puro; todo I/O fica aqui.
+ * Núcleo do cálculo da forma de pagamento: lê a condição e os parâmetros vigentes, monta a entrada e
+ * chama o motor. É o MESMO caminho do bot e da prévia do painel; só o `runAndRecord…` grava.
  */
-export async function runAndRecordPaymentSimulation(db: Db, args: RunPaymentSimulationArgs): Promise<RecordedPaymentSimulation> {
-  const lead = await db.lead.findUniqueOrThrow({ where: { id: args.leadId }, include: { financialProfile: true } });
-  const unit = await db.unit.findUniqueOrThrow({ where: { id: args.unitId }, include: { development: true } });
-  const stored = await getSalesConditionInForce(db, unit.developmentId, args.referenceDate, args);
+export async function computePaymentSimulation(db: Db, args: ComputePaymentArgs): Promise<ComputedPayment> {
+  const stored = args.conditionOverride ? null : await getSalesConditionInForce(db, args.unit.developmentId, args.referenceDate, args);
+  const condition = args.conditionOverride ?? stored!.condition;
 
   const input = buildPaymentInput({
     mode: args.mode,
-    lead,
-    profile: lead.financialProfile,
-    unit,
-    development: unit.development,
-    condition: stored.condition,
+    lead: args.lead,
+    profile: args.profile,
+    unit: args.unit,
+    development: args.unit.development,
+    condition,
     referenceDate: args.referenceDate,
     ...(args.choices ? { choices: args.choices } : {}),
   });
@@ -328,8 +345,22 @@ export async function runAndRecordPaymentSimulation(db: Db, args: RunPaymentSimu
   if (parameterSet && args.rejectIllustrative && parameterSet.params.status === 'ILUSTRATIVO') {
     throw new IllustrativeParametersRejectedError(parameterSet.version);
   }
-  const result = simulatePayment(input, stored.condition, parameterSet?.params);
-  const usedParameters = result.bankEstimate ? parameterSet : null;
+  const result = simulatePayment(input, condition, parameterSet?.params);
+  const used = result.bankEstimate && parameterSet ? { id: parameterSet.id, version: parameterSet.version } : null;
+  return { stored: stored ? { id: stored.id, version: stored.version, condition } : null, input, result, usedParameters: used };
+}
+
+/**
+ * Simula a forma de pagamento escolhida com a condição comercial VIGENTE do empreendimento na data
+ * e grava a simulação com o modo, o plano da entrada e as versões usadas (condição e, se houve
+ * estimativa do banco, parâmetros). O motor continua puro; todo I/O fica aqui.
+ */
+export async function runAndRecordPaymentSimulation(db: Db, args: RunPaymentSimulationArgs): Promise<RecordedPaymentSimulation> {
+  const lead = await db.lead.findUniqueOrThrow({ where: { id: args.leadId }, include: { financialProfile: true } });
+  const unit = await db.unit.findUniqueOrThrow({ where: { id: args.unitId }, include: { development: true } });
+  const computed = await computePaymentSimulation(db, { ...args, lead, profile: lead.financialProfile, unit });
+  const { input, result, usedParameters } = computed;
+  const stored = computed.stored!; // sem conditionOverride, a condição vem sempre do banco
 
   const simulation = await db.simulation.create({
     data: {
