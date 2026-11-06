@@ -12,6 +12,10 @@ painel.{$DOMAIN} {
 # O bot só expõe o webhook do WA-AKG. /health/deps não tem login e não pode ser público.
 bot.{$DOMAIN} {
 	@webhook path /webhooks/wa-akg
-	reverse_proxy @webhook bot:3100
-	respond 404
+	handle @webhook {
+		reverse_proxy bot:3100
+	}
+	handle {
+		respond 404
+	}
 }
