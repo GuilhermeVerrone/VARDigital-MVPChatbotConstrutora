@@ -71,7 +71,8 @@ jobs:
           ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "GHCR_USER='$GHCR_USER' GHCR_TOKEN='$GHCR_TOKEN' TAG='$TAG' bash -s" <<'REMOTE'
           set -euo pipefail
           cd ~/app/infra
-          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          # A VPS já guarda o login do GHCR; o token do secret, se existir, renova.
+          if [ -n "$GHCR_TOKEN" ]; then echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin; fi
           sed -i "s/^TAG=.*/TAG=$TAG/" .env.prod
           docker compose -f docker-compose.prod.yml --env-file .env.prod pull bot site painel migrate caddy
           docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --remove-orphans
