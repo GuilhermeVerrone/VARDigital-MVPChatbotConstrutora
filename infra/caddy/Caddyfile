@@ -1,8 +1,4 @@
-# Caddy: TLS automático (Let's Encrypt) e proxy reverso. Domínios vêm de infra/.env.prod (DOMAIN).
-{
-	email {$ACME_EMAIL}
-}
-
+# Caddy: TLS automático (Let's Encrypt) e proxy reverso.. Domínio vem de infra/.env.prod (DOMAIN).
 {$DOMAIN} {
 	encode zstd gzip
 	reverse_proxy site:3000
