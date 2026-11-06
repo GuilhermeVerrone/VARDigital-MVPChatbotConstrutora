@@ -10,6 +10,7 @@ COPY packages/simulation/package.json packages/simulation/
 RUN pnpm install --frozen-lockfile --ignore-scripts --filter @mvp/db...
 COPY tsconfig.base.json ./
 COPY packages/db packages/db
-USER root
 WORKDIR /repo/packages/db
+# Baixa o motor de migrations no build (uma consulta qualquer basta; a conexão falha, o motor fica em cache).
+RUN BOT_DATABASE_URL=postgresql://x:x@127.0.0.1:1/x pnpm exec prisma migrate status || true
 CMD ["pnpm", "exec", "prisma", "migrate", "deploy"]
