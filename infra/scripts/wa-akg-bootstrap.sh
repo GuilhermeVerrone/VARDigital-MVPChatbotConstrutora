@@ -8,7 +8,7 @@
 set -euo pipefail
 
 INFRA="$(cd "$(dirname "$0")/.." && pwd)"
-ENV_FILE="${INFRA}/.env"
+ENV_FILE="${ENV_FILE:-${INFRA}/.env}"
 # shellcheck disable=SC1090
 set -a; source "${ENV_FILE}"; set +a
 

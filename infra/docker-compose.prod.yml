@@ -18,7 +18,6 @@ services:
     ports: ["80:80", "443:443", "443:443/udp"]
     environment:
       DOMAIN: ${DOMAIN:?defina em infra/.env.prod}
-      ACME_EMAIL: ${ACME_EMAIL:?defina em infra/.env.prod}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
