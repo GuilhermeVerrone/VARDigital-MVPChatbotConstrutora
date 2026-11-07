@@ -160,17 +160,52 @@ describe('vigência por data', () => {
     expect((await getParametersInForce(t.db, '2026-12-01')).validTo).toBeNull();
   });
 
-  it('alterações concorrentes na mesma data: uma vence, a outra falha, a linha do tempo fica coerente', async () => {
+  it('duas publicações a partir da mesma versão-base na mesma data: uma vence, a outra falha, a linha do tempo fica coerente', async () => {
     await publishBase();
-    const results = await Promise.allSettled([
-      change(['lines.sbpe.maxLtv=0.7'], '2026-11-01', { version: 'a' }),
-      change(['lines.sbpe.maxLtv=0.75'], '2026-11-01', { version: 'b' }),
-    ]);
+    // As duas partem da mesma versão vigente (lida uma vez, antes de qualquer commit). O lock da tabela serializa
+    // as publicações, então a segunda sempre encontra a versão da primeira e é recusada, qualquer que seja a ordem.
+    const base = await getParametersInForce(t.db, '2026-11-01');
+    const publishWith = (maxLtv: number, version: string) =>
+      publishParameters(t.db, {
+        params: {
+          ...base.params,
+          validTo: null,
+          creditLines: base.params.creditLines.map((l) => (l.id === 'sbpe' ? { ...l, maxLtv } : l)),
+        },
+        version,
+        validFrom: '2026-11-01',
+        actor: 'ana.financeiro',
+        reason: 'tabela nova do banco',
+        today: TODAY,
+        action: 'PARAMETERS_CHANGED',
+        expectedPreviousVersion: base.version,
+      });
+    const results = await Promise.allSettled([publishWith(0.7, 'a'), publishWith(0.75, 'b')]);
     const ok = results.filter((r) => r.status === 'fulfilled');
     const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
     expect(ok).toHaveLength(1);
     expect(failed).toHaveLength(1);
     expect(failed[0]!.reason).toBeInstanceOf(ParameterTimelineError);
+    expect(failed[0]!.reason.message).toMatch(/vigente mudou/);
+    const sets = await listParameterSets(t.db);
+    expect(sets.filter((s) => !s.supersededById).map((s) => [s.validFrom, s.validTo])).toEqual([
+      ['2026-01-01', '2026-10-31'],
+      ['2026-11-01', null],
+    ]);
+  });
+
+  it('alterações concorrentes pelo changeParameters: nunca corrompem a linha do tempo, vençam uma ou as duas em sequência', async () => {
+    await publishBase();
+    // changeParameters lê a base antes do lock. Se as duas leituras acontecem antes do primeiro commit, a segunda é
+    // recusada; se a primeira já terminou, a segunda a substitui (também válido). O invariante vale nos dois casos.
+    const results = await Promise.allSettled([
+      change(['lines.sbpe.maxLtv=0.7'], '2026-11-01', { version: 'a' }),
+      change(['lines.sbpe.maxLtv=0.75'], '2026-11-01', { version: 'b' }),
+    ]);
+    expect(results.some((r) => r.status === 'fulfilled')).toBe(true);
+    for (const r of results) {
+      if (r.status === 'rejected') expect(r.reason).toBeInstanceOf(ParameterTimelineError);
+    }
     const sets = await listParameterSets(t.db);
     expect(sets.filter((s) => !s.supersededById).map((s) => [s.validFrom, s.validTo])).toEqual([
       ['2026-01-01', '2026-10-31'],
