@@ -3,7 +3,9 @@
 export { createDb, type Db } from './client';
 export { addDays, dateFromIso, isoFromDate, todayIso } from './convert';
 export * from './generated/prisma/enums';
-export { createUser, findSessionUser, login, logout, MIN_PASSWORD_LENGTH, SESSION_HOURS, type LoginResult } from './users';
+export {
+  changeOwnPassword, createUser, findSessionUser, login, logout, MIN_PASSWORD_LENGTH, SESSION_HOURS, type ChangePasswordResult, type LoginResult,
+} from './users';
 export type { User } from './generated/prisma/client';
 export {
   diffSalesConditions,

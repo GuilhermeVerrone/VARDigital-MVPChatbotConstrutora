@@ -18,6 +18,7 @@ describe('rotas protegidas por papel', () => {
     ['/simulador', { ADMIN: true, GERENTE: true, CORRETOR: false }],
     ['/whatsapp', { ADMIN: true, GERENTE: true, CORRETOR: false }],
     ['/usuarios', { ADMIN: true, GERENTE: false, CORRETOR: false }],
+    ['/conta', { ADMIN: true, GERENTE: true, CORRETOR: true }],
   ];
 
   it.each(matrix)('%s', (path, expected) => {

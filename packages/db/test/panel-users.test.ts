@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { login, seedElevare } from '../src';
+import { changeOwnPassword, login, seedElevare } from '../src';
 import { listAdminUsers, PanelValidationError, savePanelUser } from '../src/panel-entry';
 import { createTestDb, type TestDb } from './db';
 
@@ -90,5 +90,29 @@ describe('usuários do painel', () => {
     // Agora `other` é o único admin: ninguém (nem um gerente com acesso indevido ao serviço) o rebaixa.
     await expect(savePanelUser(t.db, { actor: admin, id: other.id, data: { ...base, name: 'Ana Admin', email: 'ana-admin@teste.invalid', role: 'ADMIN', active: false, password: '' } }))
       .rejects.toMatchObject({ fields: { _: expect.any(String) } });
+  });
+
+  it('o próprio usuário troca a senha: confere a atual, marca a data e encerra só as outras sessões', async () => {
+    const u = await savePanelUser(t.db, { actor: admin, data: { ...base, name: 'Troca', email: 'troca@teste.invalid' } });
+    expect(u.passwordChangedAt).toBeNull();
+    const s1 = await login(t.db, { email: 'troca@teste.invalid', password: 'senha-inicial-1', now: NOW });
+    const s2 = await login(t.db, { email: 'troca@teste.invalid', password: 'senha-inicial-1', now: NOW });
+    if (!s1.ok || !s2.ok) throw new Error('login');
+    const change = (current: string, next: string) => changeOwnPassword(t.db, { userId: u.id, current, next, now: NOW, keepToken: s1.token });
+
+    expect(await change('errada-errada', 'senha-nova-456')).toEqual({ ok: false, reason: 'WRONG_CURRENT' });
+    expect(await change('senha-inicial-1', 'curta')).toEqual({ ok: false, reason: 'TOO_SHORT' });
+    expect(await change('senha-inicial-1', 'senha-inicial-1')).toEqual({ ok: false, reason: 'SAME_AS_CURRENT' });
+    expect(await change('senha-inicial-1', 'senha-nova-456')).toEqual({ ok: true });
+
+    const after = await t.db.user.findUniqueOrThrow({ where: { id: u.id } });
+    expect(after.passwordChangedAt).toEqual(NOW);
+    const sessions = await t.db.userSession.findMany({ where: { userId: u.id } });
+    expect(sessions).toHaveLength(1);
+    expect((await login(t.db, { email: 'troca@teste.invalid', password: 'senha-nova-456', now: NOW })).ok).toBe(true);
+
+    // Redefinida pelo admin, a senha volta a ser provisória.
+    await savePanelUser(t.db, { actor: admin, id: u.id, data: { ...base, name: 'Troca', email: 'troca@teste.invalid', password: 'senha-do-admin-9' } });
+    expect((await t.db.user.findUniqueOrThrow({ where: { id: u.id } })).passwordChangedAt).toBeNull();
   });
 });

@@ -105,7 +105,8 @@ export async function savePanelUser(db: Db, args: { actor: string; id?: string; 
       const diff = changedFields(snapshot(current), snapshot(fields));
       const updated = await tx.user.update({
         where: { id: current.id },
-        data: { ...fields, ...(passwordHash ? { passwordHash, failedLogins: 0, lockedUntil: null } : {}) },
+        // Senha redefinida pelo admin volta a ser provisória: o painel pede a troca ao usuário.
+        data: { ...fields, ...(passwordHash ? { passwordHash, passwordChangedAt: null, failedLogins: 0, lockedUntil: null } : {}) },
       });
       if (diff.changed) {
         const onlyActive = Object.keys(diff.after).length === 1 && 'active' in diff.after;

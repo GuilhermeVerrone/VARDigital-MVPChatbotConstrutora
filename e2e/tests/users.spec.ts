@@ -34,6 +34,18 @@ test('admin cria um usuário corretor, que entra e só vê início e leads', asy
   await expect(nav).toHaveText(['Início', 'Leads']);
   await other.goto(`${painel}/usuarios`);
   await expect(other).toHaveURL(/\/acesso-negado$/);
+
+  // Senha definida pelo admin é provisória: o painel pede a troca até o corretor trocar.
+  const notice = other.getByText('Sua senha foi definida por outra pessoa');
+  await expect(notice).toBeVisible();
+  await other.getByRole('link', { name: 'Troque agora em Minha conta' }).click();
+  const form = other.getByRole('form', { name: 'Trocar senha' });
+  await form.getByLabel('Senha atual').fill(CORRETOR.password);
+  await form.getByLabel('Nova senha', { exact: true }).fill('senha-do-corretor-e2e');
+  await form.getByLabel('Repita a nova senha').fill('senha-do-corretor-e2e');
+  await form.getByRole('button', { name: 'Trocar senha' }).click();
+  await expect(other.getByText('Senha trocada.')).toBeVisible();
+  await expect(notice).toHaveCount(0);
   await ctx.close();
 
   await page.goto(`${painel}/auditoria?entity=User&action=USER_CREATED`);

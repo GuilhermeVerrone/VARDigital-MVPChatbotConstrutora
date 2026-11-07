@@ -58,6 +58,8 @@ export const ROUTE_PERMISSIONS: readonly { prefix: string; permission: Permissio
   { prefix: '/simulador', permission: 'simulator:use' },
   { prefix: '/whatsapp', permission: 'whatsapp:read' },
   { prefix: '/usuarios', permission: 'users:read' },
+  // A própria conta (troca de senha): todo usuário logado.
+  { prefix: '/conta', permission: 'home' },
 ];
 
 /** Rotas que não exigem sessão. */
@@ -89,6 +91,8 @@ export interface PanelUser {
   name: string;
   role: Role;
   brokerId: string | null;
+  /** Senha definida por outra pessoa (seed ou admin): o painel pede a troca. */
+  mustChangePassword?: boolean;
 }
 
 /** Escopo dos leads do usuário: o corretor só enxerga os dele (sem corretor vinculado, nenhum); os demais, todos. */

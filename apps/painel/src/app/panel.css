@@ -21,6 +21,7 @@ p { margin: 0 0 .8em; }
 .side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .brand { font-weight: 700; font-size: 1.15rem; margin: 0 12px; } .brand span { font-weight: 400; color: var(--lime); }
 .who { margin-top: auto; padding: 0 12px; } .who .muted { color: #B9C9C4; }
+.who .account { display: inline-block; padding: 0; margin: 4px 0 10px; font-size: .85rem; text-decoration: underline; }
 .who .btn.ghost { width: 100%; color: var(--paper); border-color: rgba(255,255,255,.5); }
 .who .btn.ghost:hover { background: var(--paper); color: var(--green); }
 .main { padding: 32px clamp(16px, 4vw, 48px) 64px; min-width: 0; max-width: 1280px; }
@@ -44,7 +45,7 @@ input:disabled, select:disabled, textarea:disabled { background: var(--green-06)
 .hint { font-size: .8rem; color: var(--green-80); } .error { font-size: .85rem; font-weight: 600; color: #A12A0A; } .ok-text { font-size: .85rem; font-weight: 600; color: #2D6A1F; }
 .notice { padding: 10px 14px; border-radius: var(--radius); border-left: 4px solid; margin: 0 0 14px; }
 .notice.ok { background: #E3F0D4; border-color: #2D6A1F; } .notice.error { background: #FBE4DC; border-color: #A12A0A; } .notice.info { background: var(--green-06); border-color: var(--green); }
-.stack { display: grid; gap: 4px; }
+.stack { display: grid; gap: 4px; } .stack.narrow { max-width: 420px; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0 20px; }
 .form-grid .field:has(textarea) { grid-column: 1 / -1; }
 fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px 6px; margin: 0 0 16px; background: var(--white); min-width: 0; }

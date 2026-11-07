@@ -92,6 +92,7 @@ export {
   type StoredFlowConfig,
 } from './flow-config';
 export {
+  changeOwnPassword,
   createUser,
   findSessionUser,
   hashPassword,

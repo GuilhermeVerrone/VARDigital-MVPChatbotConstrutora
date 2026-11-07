@@ -5,7 +5,7 @@ import { createTestDb, type TestDb } from '../../../packages/db/test/db';
 import { conditionToValues } from '../src/lib/condition-form';
 import { ForbiddenError, type PanelUser, type Role } from '../src/lib/permissions';
 import { brokersService, usersService, checkConditionDraft, developmentsService, financingService, previewConditionService, publishConditionDraft, type ServiceCtx } from '../src/lib/services';
-import { signIn, signOut, userForToken } from '../src/lib/auth';
+import { changePassword, signIn, signOut, userForToken } from '../src/lib/auth';
 
 const TODAY = '2026-11-05';
 const NEXT = '2026-11-06';
@@ -121,5 +121,20 @@ describe('login', () => {
     expect(wrongPass).toEqual(wrongUser);
     expect(await userForToken(t.db, undefined)).toBeNull();
     expect(await userForToken(t.db, 'token-inventado')).toBeNull();
+  });
+
+  it('senha provisória: o painel pede a troca até o próprio usuário trocar; a troca é auditada', async () => {
+    const u = await createUser(t.db, { name: 'Provisória', email: 'provisoria@teste.invalid', password: 'senha-comprida-1', role: 'GERENTE' });
+    const s = await signIn(t.db, { email: 'provisoria@teste.invalid', password: 'senha-comprida-1' });
+    if (!s.ok) throw new Error('deveria entrar');
+    expect(s.user.mustChangePassword).toBe(true);
+    expect(await changePassword(t.db, { user: s.user, current: 'senha-comprida-1', next: 'senha-nova-123', confirm: 'outra-coisa', token: s.token }))
+      .toEqual({ ok: false, fields: { confirm: expect.any(String) } });
+    expect(await changePassword(t.db, { user: s.user, current: 'errada-errada', next: 'senha-nova-123', confirm: 'senha-nova-123', token: s.token }))
+      .toEqual({ ok: false, fields: { current: 'Senha atual incorreta.' } });
+    expect(await changePassword(t.db, { user: s.user, current: 'senha-comprida-1', next: 'senha-nova-123', confirm: 'senha-nova-123', token: s.token })).toEqual({ ok: true });
+    // A sessão atual continua e já não pede a troca.
+    expect((await userForToken(t.db, s.token))?.mustChangePassword).toBe(false);
+    expect((await t.db.auditLog.findMany({ where: { entityId: u.id, action: 'USER_PASSWORD_CHANGED' } })).map((a) => a.actor)).toEqual([u.id]);
   });
 });

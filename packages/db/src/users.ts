@@ -121,6 +121,31 @@ export async function logout(db: Db, token: string): Promise<void> {
   await db.userSession.deleteMany({ where: { tokenHash: hashSessionToken(token) } });
 }
 
+export type ChangePasswordResult =
+  | { ok: true }
+  | { ok: false; reason: 'WRONG_CURRENT' | 'TOO_SHORT' | 'SAME_AS_CURRENT' | 'NOT_FOUND' };
+
+/**
+ * O próprio usuário troca a senha: confere a atual, grava a nova, marca a data da troca e encerra as
+ * outras sessões (a do token informado continua aberta).
+ */
+export async function changeOwnPassword(
+  db: Db,
+  a: { userId: string; current: string; next: string; now: Date; keepToken?: string },
+): Promise<ChangePasswordResult> {
+  const user = await db.user.findUnique({ where: { id: a.userId } });
+  if (!user || !user.active) return { ok: false, reason: 'NOT_FOUND' };
+  if (!(await verifyPassword(user.passwordHash, a.current))) return { ok: false, reason: 'WRONG_CURRENT' };
+  if (a.next.length < MIN_PASSWORD_LENGTH) return { ok: false, reason: 'TOO_SHORT' };
+  if (a.next === a.current) return { ok: false, reason: 'SAME_AS_CURRENT' };
+  const passwordHash = await hashPassword(a.next);
+  await db.$transaction([
+    db.user.update({ where: { id: user.id }, data: { passwordHash, passwordChangedAt: a.now, failedLogins: 0, lockedUntil: null } }),
+    db.userSession.deleteMany({ where: { userId: user.id, ...(a.keepToken ? { tokenHash: { not: hashSessionToken(a.keepToken) } } : {}) } }),
+  ]);
+  return { ok: true };
+}
+
 /** Apaga as sessões vencidas. Retorna quantas. */
 export async function purgeExpiredSessions(db: Db, now: Date): Promise<number> {
   return (await db.userSession.deleteMany({ where: { expiresAt: { lte: now } } })).count;
