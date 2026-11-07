@@ -17,6 +17,7 @@ describe('rotas protegidas por papel', () => {
     ['/fluxo', { ADMIN: true, GERENTE: true, CORRETOR: false }],
     ['/simulador', { ADMIN: true, GERENTE: true, CORRETOR: false }],
     ['/whatsapp', { ADMIN: true, GERENTE: true, CORRETOR: false }],
+    ['/usuarios', { ADMIN: true, GERENTE: false, CORRETOR: false }],
   ];
 
   it.each(matrix)('%s', (path, expected) => {
@@ -42,9 +43,18 @@ describe('rotas protegidas por papel', () => {
     expect(can('CORRETOR', 'leads:erase')).toBe(false);
   });
 
+  it('só o admin gerencia usuários (criar outro admin é escalada de privilégio)', () => {
+    for (const p of ['users:read', 'users:write'] as const) {
+      expect(can('ADMIN', p)).toBe(true);
+      expect(can('GERENTE', p)).toBe(false);
+      expect(can('CORRETOR', p)).toBe(false);
+    }
+  });
+
   it('o menu do corretor só tem o início e os leads', () => {
     expect(NAV_ITEMS.filter((i) => can('CORRETOR', i.permission)).map((i) => i.href)).toEqual(['/', '/leads']);
-    expect(NAV_ITEMS.filter((i) => can('GERENTE', i.permission))).toHaveLength(NAV_ITEMS.length);
+    expect(NAV_ITEMS.filter((i) => !can('GERENTE', i.permission)).map((i) => i.href)).toEqual(['/usuarios']);
+    expect(NAV_ITEMS.filter((i) => can('ADMIN', i.permission))).toHaveLength(NAV_ITEMS.length);
   });
 
   it('o escopo de leads: corretor só os dele (sem vínculo, nenhum); gestão e admin, todos', () => {

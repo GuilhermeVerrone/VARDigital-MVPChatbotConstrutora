@@ -33,6 +33,7 @@ export {
   type AdminUnit,
 } from './panel/catalog';
 export { brokerFormSchema, listAdminBrokers, saveBroker } from './panel/brokers';
+export { listAdminUsers, panelUserFormSchema, savePanelUser, type AdminUserRow, type PanelUserForm } from './panel/users';
 export { SAMPLE_PROFILES, previewPayment, simulateCollected, type CollectedSimulationArgs, type PreviewArgs, type PreviewResult, type SampleProfile } from './panel/preview';
 export { isSimulationDataError } from './simulation-service';
 export { PanelNotFoundError, PanelValidationError } from './panel/errors';

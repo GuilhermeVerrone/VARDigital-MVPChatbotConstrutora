@@ -27,7 +27,9 @@ import {
   getSalesConditionInForce,
   listAdminDevelopments,
   listAdminBrokers,
+  listAdminUsers,
   listSalesConditions,
+  savePanelUser,
   previewPayment,
   PanelValidationError,
   publishFinancingLine,
@@ -97,6 +99,20 @@ export const brokersService = {
   save: async (ctx: ServiceCtx, id: string | undefined, data: unknown) => {
     assertCan(ctx.user, 'brokers:write');
     return saveBroker(ctx.db, { actor: ctx.user.id, ...(id ? { id } : {}), data });
+  },
+};
+
+// -- Usuários do painel --------------------------------------------------------------------------
+
+export const usersService = {
+  list: async (ctx: ServiceCtx) => {
+    assertCan(ctx.user, 'users:read');
+    const [users, brokers] = await Promise.all([listAdminUsers(ctx.db), listAdminBrokers(ctx.db)]);
+    return { users, brokers: brokers.map((b) => ({ id: b.id, name: b.name, active: b.active })) };
+  },
+  save: async (ctx: ServiceCtx, id: string | undefined, data: unknown) => {
+    assertCan(ctx.user, 'users:write');
+    return savePanelUser(ctx.db, { actor: ctx.user.id, ...(id ? { id } : {}), data });
   },
 };
 

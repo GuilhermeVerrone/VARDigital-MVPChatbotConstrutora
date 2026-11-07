@@ -4,7 +4,7 @@ import { runAndRecordPaymentSimulation } from '@mvp/db';
 import { createTestDb, type TestDb } from '../../../packages/db/test/db';
 import { conditionToValues } from '../src/lib/condition-form';
 import { ForbiddenError, type PanelUser, type Role } from '../src/lib/permissions';
-import { brokersService, checkConditionDraft, developmentsService, financingService, previewConditionService, publishConditionDraft, type ServiceCtx } from '../src/lib/services';
+import { brokersService, usersService, checkConditionDraft, developmentsService, financingService, previewConditionService, publishConditionDraft, type ServiceCtx } from '../src/lib/services';
 import { signIn, signOut, userForToken } from '../src/lib/auth';
 
 const TODAY = '2026-11-05';
@@ -52,6 +52,20 @@ describe('papéis nos serviços (a rota protegida não depende do menu)', () => 
     const c = ctx('GERENTE');
     await expect(developmentsService.list(c)).resolves.toBeDefined();
     await expect(financingService.publishLine(c, {})).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('só o admin lista e altera usuários; gerente e corretor recebem ForbiddenError', async () => {
+    const novo = { name: 'Novo', email: 'novo@teste.invalid', role: 'ADMIN', brokerId: '', active: true, password: 'senha-comprida-2' };
+    for (const role of ['GERENTE', 'CORRETOR'] as Role[]) {
+      await expect(usersService.list(ctx(role))).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(usersService.save(ctx(role), undefined, novo)).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(usersService.save(ctx(role), users[role].id, { ...novo, email: `${role.toLowerCase()}@teste.invalid` })).rejects.toBeInstanceOf(ForbiddenError);
+    }
+    expect(await t.db.user.count({ where: { email: 'novo@teste.invalid' } })).toBe(0);
+    const { users: list, brokers } = await usersService.list(ctx('ADMIN'));
+    expect(new Set(list.map((u) => u.role))).toEqual(new Set(['ADMIN', 'CORRETOR', 'GERENTE']));
+    expect(brokers.length).toBeGreaterThan(0);
+    expect(JSON.stringify(list)).not.toMatch(/argon|passwordHash/);
   });
 
   it('nada foi gravado pelas tentativas negadas', async () => {
