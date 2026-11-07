@@ -31,9 +31,15 @@ export function whatsappNumber(): string | null {
   return n.length >= 12 ? n : null;
 }
 
+/** Limite vindo do ambiente (0 desliga); valor ausente ou inválido usa o padrão. */
+function limitFromEnv(name: string, fallback: number): number {
+  const n = Number.parseInt(process.env[name] ?? '', 10);
+  return Number.isInteger(n) && n >= 0 ? n : fallback;
+}
+
 export const limiters = ((globalThis as unknown as { __siteLimiters?: { ip: ReturnType<typeof createRateLimiter>; phone: ReturnType<typeof createRateLimiter> } }).__siteLimiters ??= {
-  ip: createRateLimiter({ max: 10, windowMs: 60 * 60 * 1000 }),
-  phone: createRateLimiter({ max: 3, windowMs: 60 * 60 * 1000 }),
+  ip: createRateLimiter({ max: limitFromEnv('SITE_RATE_LIMIT_IP', 10), windowMs: 60 * 60 * 1000 }),
+  phone: createRateLimiter({ max: limitFromEnv('SITE_RATE_LIMIT_PHONE', 3), windowMs: 60 * 60 * 1000 }),
 });
 
 export function clientIp(headers: Headers): string {

@@ -6,7 +6,9 @@ export interface RateLimiter {
   hit(key: string, now?: number): boolean;
 }
 
+/** `max <= 0` desliga o limite (útil em teste e demonstração). */
 export function createRateLimiter(opts: { max: number; windowMs: number }): RateLimiter {
+  if (opts.max <= 0) return { hit: () => true };
   const hits = new Map<string, number[]>();
   return {
     hit(key, now = Date.now()) {
