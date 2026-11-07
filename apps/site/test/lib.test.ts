@@ -41,6 +41,11 @@ describe('limite de tentativas', () => {
     expect(rl.hit('b', 20)).toBe(true);
     expect(rl.hit('a', 1100)).toBe(true);
   });
+
+  it('max 0 desliga o limite', () => {
+    const rl = createRateLimiter({ max: 0, windowMs: 1000 });
+    expect(Array.from({ length: 50 }, (_, i) => rl.hit('a', i))).toEqual(Array(50).fill(true));
+  });
 });
 
 describe('validação do formulário', () => {

@@ -70,6 +70,11 @@ services:
       LLM_ENABLED: ${LLM_ENABLED:-true}
       CHAT_HASH_SECRET: ${CHAT_HASH_SECRET:?}
       LEAD_RETENTION_DAYS: ${LEAD_RETENTION_DAYS:-180}
+      # 1º contato do formulário: janela (00:00-24:00 e 0-6 = sempre) e limite por hora (0 = sem limite).
+      FIRST_CONTACT_START: ${FIRST_CONTACT_START:-08:00}
+      FIRST_CONTACT_END: ${FIRST_CONTACT_END:-20:00}
+      FIRST_CONTACT_DAYS: ${FIRST_CONTACT_DAYS:-1-6}
+      FIRST_CONTACT_MAX_PER_HOUR: ${FIRST_CONTACT_MAX_PER_HOUR:-30}
       PROMPTS_DIR: /app/prompts
     networks: [internal, web, wa-akg-internal]
     depends_on:
@@ -85,6 +90,9 @@ services:
       SITE_FORM_SECRET: ${SITE_FORM_SECRET:?}
       SITE_WHATSAPP_NUMBER: ${SITE_WHATSAPP_NUMBER:-}
       SITE_TRUST_PROXY: "true"
+      # Envios por hora do formulário, por IP e por telefone (0 = sem limite).
+      SITE_RATE_LIMIT_IP: ${SITE_RATE_LIMIT_IP:-10}
+      SITE_RATE_LIMIT_PHONE: ${SITE_RATE_LIMIT_PHONE:-3}
     networks: [internal, web]
     depends_on:
       migrate: { condition: service_completed_successfully }
