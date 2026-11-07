@@ -14,6 +14,15 @@ describe('allowlist', () => {
       expect(list.isAllowed(v), v).toBe(false);
   });
 
+  it("modo aberto ('*'): atende qualquer conversa individual, mas não grupos, transmissões nem canais", () => {
+    const open = createPhoneAllowlist(['*']);
+    for (const v of ['5511987654321@s.whatsapp.net', '5513981264296', '+55 (41) 99999-0000', '5513981264295@lid'])
+      expect(open.isAllowed(v), v).toBe(true);
+    for (const v of ['1203@g.us', 'status@broadcast', '1203@newsletter', '', '123', '@s.whatsapp.net'])
+      expect(open.isAllowed(v), v).toBe(false);
+    expect(createPhoneAllowlist(['13981264295', '*']).isAllowed('5511987654321')).toBe(true);
+  });
+
   it('canonicalPhone normaliza DDI e nono dígito', () => {
     expect(canonicalPhone('5513981264295')).toBe('1381264295');
     expect(canonicalPhone('13981264295')).toBe('1381264295');
