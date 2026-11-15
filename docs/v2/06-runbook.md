@@ -48,6 +48,22 @@ docker compose up -d bot site painel
 - `demo-reset` e o roteiro: [05-roteiro-demo.md](05-roteiro-demo.md). Recusa rodar sem `APP_ENV=demo|development|test`; **nunca defina `APP_ENV` assim no ambiente de produção real**, porque as credenciais do banco são as mesmas.
 - Verificação de ponta a ponta antes de apresentar: `pnpm test:e2e` (sobe a própria stack descartável; não toca no seu banco).
 
+## Site de vendas (ConstruBot)
+
+`apps/vitrine`: site estático de vendas, publicado como a imagem `vitrine` (Caddy mínimo, `mem_limit` 48m) atrás do Caddy da borda.
+
+- **Endereço:** `VITRINE_HOST` no `infra/.env.prod` (padrão `vendas.<DOMAIN>`). Pode ser outro domínio: aponte o DNS para a VPS e o Caddy emite o certificado.
+- **Links da demonstração e contato de vendas** entram no build. Defina em *Settings → Secrets and variables → Actions → Variables* do repositório:
+  - `DEMO_SITE_URL`: o site de exemplo, normalmente `https://<DOMAIN>`;
+  - `DEMO_WHATSAPP`: o número do bot, só dígitos com DDI (o mesmo de `SITE_WHATSAPP_NUMBER`);
+  - `VENDAS_WHATSAPP` e/ou `VENDAS_EMAIL`: o contato de vendas.
+
+  Sem elas, os botões apontam para a página `/testar/` (nenhum link quebrado).
+- **Demonstração aberta ("teste com o seu celular")** só funciona se o bot aceitar qualquer telefone e mandar o 1º contato a qualquer hora: `ALLOWED_PHONES=*` e `FIRST_CONTACT_START=00:00`, `FIRST_CONTACT_END=24:00`, `FIRST_CONTACT_DAYS=0-6` no `.env.prod`. Avalie o `FIRST_CONTACT_MAX_PER_HOUR` e rode o `demo-reset` com frequência (os visitantes deixam leads de teste).
+- **Atualizar prints e conversas** depois de mudar o produto: `pnpm vitrine:capturas` (sobe a stack do e2e, sem tocar no seu banco) e commite `apps/vitrine/public/produto/` e `apps/vitrine/src/conteudo/`.
+- **O roteiro de teste do site** é verificado por `e2e/tests/roteiro-vitrine.spec.ts` (`pnpm test:e2e`). Se ele quebrar, ajuste `apps/vitrine/src/conteudo/roteiro.ts`.
+- Local: `pnpm --filter @mvp/vitrine dev` (porta 3400) ou `build` + `start` (serve a pasta `out/`).
+
 ## Memória (VPS de 4 GB)
 
 Medição da Fase 16 (detalhes e limites em [fase-16.md](../fases/fase-16.md)): bot ≈ 300 MiB, site ≈ 240 MiB e painel ≈ 400 MiB de pico no macOS sob a carga da demo, somados aos containers medidos na Fase 11b (WA-AKG, MySQL e Postgres do bot, ≈ 530 MiB). Ordem de grandeza: **~1,5 GB de pico**, dentro do teto de 2,5 GB. Ao escrever o Compose do site e do painel use como ponto de partida: painel `mem_limit` 512m, site 384m, `--max-old-space-size` ≈ 70% do limite, e confirme com `infra/scripts/measure-memory.sh`.

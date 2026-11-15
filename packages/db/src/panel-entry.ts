@@ -3,7 +3,9 @@
 export { createDb, type Db } from './client';
 export { addDays, dateFromIso, isoFromDate, todayIso } from './convert';
 export * from './generated/prisma/enums';
-export { createUser, findSessionUser, login, logout, MIN_PASSWORD_LENGTH, SESSION_HOURS, type LoginResult } from './users';
+export {
+  changeOwnPassword, createUser, findSessionUser, login, logout, MIN_PASSWORD_LENGTH, SESSION_HOURS, type ChangePasswordResult, type LoginResult,
+} from './users';
 export type { User } from './generated/prisma/client';
 export {
   diffSalesConditions,
@@ -33,6 +35,7 @@ export {
   type AdminUnit,
 } from './panel/catalog';
 export { brokerFormSchema, listAdminBrokers, saveBroker } from './panel/brokers';
+export { listAdminUsers, panelUserFormSchema, savePanelUser, type AdminUserRow, type PanelUserForm } from './panel/users';
 export { SAMPLE_PROFILES, previewPayment, simulateCollected, type CollectedSimulationArgs, type PreviewArgs, type PreviewResult, type SampleProfile } from './panel/preview';
 export { isSimulationDataError } from './simulation-service';
 export { PanelNotFoundError, PanelValidationError } from './panel/errors';

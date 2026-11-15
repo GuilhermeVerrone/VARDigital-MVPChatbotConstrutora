@@ -22,7 +22,9 @@ export type Permission =
   | 'flow:read'
   | 'flow:write'
   | 'simulator:use'
-  | 'whatsapp:read';
+  | 'whatsapp:read'
+  | 'users:read'
+  | 'users:write';
 
 const GESTAO: Permission[] = [
   'home', 'developments:read', 'developments:write', 'conditions:read', 'conditions:write',
@@ -32,8 +34,9 @@ const GESTAO: Permission[] = [
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  // Financiamento (taxa, prazo) é decisão do admin; o gerente só consulta.
-  ADMIN: [...GESTAO, 'financing:write'],
+  // Financiamento (taxa, prazo) é decisão do admin; o gerente só consulta. Usuários do painel, só o admin
+  // (criar outro admin é escalada de privilégio).
+  ADMIN: [...GESTAO, 'financing:write', 'users:read', 'users:write'],
   GERENTE: GESTAO,
   // O corretor vê só os próprios leads (escopo em `leadScope`) e assume/devolve o handoff deles. Não
   // atribui corretor, não pede exclusão e não mexe no fluxo do bot.
@@ -54,6 +57,9 @@ export const ROUTE_PERMISSIONS: readonly { prefix: string; permission: Permissio
   { prefix: '/fluxo', permission: 'flow:read' },
   { prefix: '/simulador', permission: 'simulator:use' },
   { prefix: '/whatsapp', permission: 'whatsapp:read' },
+  { prefix: '/usuarios', permission: 'users:read' },
+  // A própria conta (troca de senha): todo usuário logado.
+  { prefix: '/conta', permission: 'home' },
 ];
 
 /** Rotas que não exigem sessão. */
@@ -85,6 +91,8 @@ export interface PanelUser {
   name: string;
   role: Role;
   brokerId: string | null;
+  /** Senha definida por outra pessoa (seed ou admin): o painel pede a troca. */
+  mustChangePassword?: boolean;
 }
 
 /** Escopo dos leads do usuário: o corretor só enxerga os dele (sem corretor vinculado, nenhum); os demais, todos. */
@@ -106,5 +114,6 @@ export const NAV_ITEMS: readonly { href: string; label: string; permission: Perm
   { href: '/whatsapp', label: 'WhatsApp', permission: 'whatsapp:read' },
   { href: '/financiamento', label: 'Financiamento simulado', permission: 'financing:read' },
   { href: '/corretores', label: 'Corretores', permission: 'brokers:read' },
+  { href: '/usuarios', label: 'Usuários', permission: 'users:read' },
   { href: '/auditoria', label: 'Auditoria', permission: 'audit:read' },
 ];

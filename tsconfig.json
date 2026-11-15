@@ -12,6 +12,7 @@
   ],
   "exclude": [
     "apps/site",
-    "apps/painel"
+    "apps/painel",
+    "apps/vitrine"
   ]
 }

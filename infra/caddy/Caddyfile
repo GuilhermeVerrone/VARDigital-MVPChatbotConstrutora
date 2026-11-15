@@ -4,6 +4,12 @@
 	reverse_proxy site:3000
 }
 
+# Site de vendas do ConstruBot (estático). Endereço próprio em VITRINE_HOST (padrão: vendas.<DOMAIN>).
+{$VITRINE_HOST} {
+	encode zstd gzip
+	reverse_proxy vitrine:80
+}
+
 painel.{$DOMAIN} {
 	encode zstd gzip
 	reverse_proxy painel:3000

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Notice } from '@/components/fields';
 import { SubmitButton } from '@/components/SubmitButton';
 import { ROLE_LABEL } from '@/lib/format';
 import { can, NAV_ITEMS } from '@/lib/permissions';
@@ -23,10 +24,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </nav>
         <div className="who">
           <p><strong>{user.name}</strong><br /><span className="muted small">{ROLE_LABEL[user.role]}</span></p>
+          <Link className="account" href="/conta">Minha conta</Link>
           <form action={logoutAction}><SubmitButton variant="ghost" pendingLabel="Saindo…">Sair</SubmitButton></form>
         </div>
       </aside>
-      <main id="main" className="main">{children}</main>
+      <main id="main" className="main">
+        {user.mustChangePassword ? (
+          <Notice kind="info">
+            Sua senha foi definida por outra pessoa (ou é a senha de demonstração). <Link href="/conta">Troque agora em Minha conta</Link>.
+          </Notice>
+        ) : null}
+        {children}
+      </main>
     </div>
   );
 }

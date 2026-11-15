@@ -42,7 +42,6 @@ export function paymentDossierCard(view: PaymentView, opts: DossierOptions = {})
   const out: string[] = [];
   if (opts.update) out.push('🔄 SIMULAÇÃO ATUALIZADA: o lead ajustou o plano');
   out.push(`${CLASS_HEADER[leadClassFor(r.verdict)]} — ${VERDICT_LABEL[r.verdict]}`);
-  out.push('(classe pelo parecer da simulação; o score numérico configurável vem depois do MVP)');
   if (opts.existingOwner) out.push(`ℹ️ Lead já existia no CRM. Responsável: ${opts.existingOwner}`);
 
   out.push('', '👤 CLIENTE', [view.leadName ?? 'Nome não informado', view.phone ? phoneBr(view.phone) : null, view.email].filter(Boolean).join(' | '));

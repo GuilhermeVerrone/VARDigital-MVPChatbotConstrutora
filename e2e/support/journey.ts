@@ -49,10 +49,10 @@ export async function converse(env: StackEnv, phone: string, answers: string[]):
   return last;
 }
 
-export async function loginPainel(page: Page): Promise<void> {
+export async function loginPainel(page: Page, who: { email: string; password: string } = ADMIN): Promise<void> {
   await page.goto(`${process.env.E2E_PAINEL_URL}/login`);
-  await page.getByLabel('E-mail').fill(ADMIN.email);
-  await page.getByLabel('Senha').fill(ADMIN.password);
+  await page.getByLabel('E-mail').fill(who.email);
+  await page.getByLabel('Senha').fill(who.password);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page).toHaveURL(`${process.env.E2E_PAINEL_URL}/`);
 }

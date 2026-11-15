@@ -1,0 +1,94 @@
+{
+  "painel-auditoria": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-condicoes": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-conta": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-corretores": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-empreendimentos": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-financiamento": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-fluxo": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-inicio": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-lead-completo": {
+    "w": 2880,
+    "h": 4908
+  },
+  "painel-lead": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-leads": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-login": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-simulador": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-usuarios": {
+    "w": 2880,
+    "h": 1800
+  },
+  "painel-whatsapp": {
+    "w": 2880,
+    "h": 1800
+  },
+  "pdf-simulacao": {
+    "w": 1273,
+    "h": 1800
+  },
+  "site-empreendimento-celular": {
+    "w": 780,
+    "h": 1688
+  },
+  "site-empreendimento": {
+    "w": 2880,
+    "h": 1800
+  },
+  "site-formulario-celular": {
+    "w": 716,
+    "h": 850
+  },
+  "site-formulario": {
+    "w": 1114,
+    "h": 882
+  },
+  "site-home-celular": {
+    "w": 780,
+    "h": 1688
+  },
+  "site-home": {
+    "w": 2880,
+    "h": 1800
+  },
+  "site-obrigado": {
+    "w": 2880,
+    "h": 1800
+  }
+}

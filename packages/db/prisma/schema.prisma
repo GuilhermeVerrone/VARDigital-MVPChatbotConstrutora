@@ -427,6 +427,8 @@ model User {
   active       Boolean   @default(true)
   failedLogins Int       @default(0) @map("failed_logins")
   lockedUntil  DateTime? @map("locked_until") @db.Timestamptz(3)
+  /// Quando o próprio usuário trocou a senha. Nulo = senha definida por outra pessoa (seed ou admin): o painel pede a troca.
+  passwordChangedAt DateTime? @map("password_changed_at") @db.Timestamptz(3)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 

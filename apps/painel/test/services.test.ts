@@ -4,8 +4,8 @@ import { runAndRecordPaymentSimulation } from '@mvp/db';
 import { createTestDb, type TestDb } from '../../../packages/db/test/db';
 import { conditionToValues } from '../src/lib/condition-form';
 import { ForbiddenError, type PanelUser, type Role } from '../src/lib/permissions';
-import { brokersService, checkConditionDraft, developmentsService, financingService, previewConditionService, publishConditionDraft, type ServiceCtx } from '../src/lib/services';
-import { signIn, signOut, userForToken } from '../src/lib/auth';
+import { brokersService, usersService, checkConditionDraft, developmentsService, financingService, previewConditionService, publishConditionDraft, type ServiceCtx } from '../src/lib/services';
+import { changePassword, signIn, signOut, userForToken } from '../src/lib/auth';
 
 const TODAY = '2026-11-05';
 const NEXT = '2026-11-06';
@@ -52,6 +52,20 @@ describe('papéis nos serviços (a rota protegida não depende do menu)', () => 
     const c = ctx('GERENTE');
     await expect(developmentsService.list(c)).resolves.toBeDefined();
     await expect(financingService.publishLine(c, {})).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('só o admin lista e altera usuários; gerente e corretor recebem ForbiddenError', async () => {
+    const novo = { name: 'Novo', email: 'novo@teste.invalid', role: 'ADMIN', brokerId: '', active: true, password: 'senha-comprida-2' };
+    for (const role of ['GERENTE', 'CORRETOR'] as Role[]) {
+      await expect(usersService.list(ctx(role))).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(usersService.save(ctx(role), undefined, novo)).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(usersService.save(ctx(role), users[role].id, { ...novo, email: `${role.toLowerCase()}@teste.invalid` })).rejects.toBeInstanceOf(ForbiddenError);
+    }
+    expect(await t.db.user.count({ where: { email: 'novo@teste.invalid' } })).toBe(0);
+    const { users: list, brokers } = await usersService.list(ctx('ADMIN'));
+    expect(new Set(list.map((u) => u.role))).toEqual(new Set(['ADMIN', 'CORRETOR', 'GERENTE']));
+    expect(brokers.length).toBeGreaterThan(0);
+    expect(JSON.stringify(list)).not.toMatch(/argon|passwordHash/);
   });
 
   it('nada foi gravado pelas tentativas negadas', async () => {
@@ -107,5 +121,20 @@ describe('login', () => {
     expect(wrongPass).toEqual(wrongUser);
     expect(await userForToken(t.db, undefined)).toBeNull();
     expect(await userForToken(t.db, 'token-inventado')).toBeNull();
+  });
+
+  it('senha provisória: o painel pede a troca até o próprio usuário trocar; a troca é auditada', async () => {
+    const u = await createUser(t.db, { name: 'Provisória', email: 'provisoria@teste.invalid', password: 'senha-comprida-1', role: 'GERENTE' });
+    const s = await signIn(t.db, { email: 'provisoria@teste.invalid', password: 'senha-comprida-1' });
+    if (!s.ok) throw new Error('deveria entrar');
+    expect(s.user.mustChangePassword).toBe(true);
+    expect(await changePassword(t.db, { user: s.user, current: 'senha-comprida-1', next: 'senha-nova-123', confirm: 'outra-coisa', token: s.token }))
+      .toEqual({ ok: false, fields: { confirm: expect.any(String) } });
+    expect(await changePassword(t.db, { user: s.user, current: 'errada-errada', next: 'senha-nova-123', confirm: 'senha-nova-123', token: s.token }))
+      .toEqual({ ok: false, fields: { current: 'Senha atual incorreta.' } });
+    expect(await changePassword(t.db, { user: s.user, current: 'senha-comprida-1', next: 'senha-nova-123', confirm: 'senha-nova-123', token: s.token })).toEqual({ ok: true });
+    // A sessão atual continua e já não pede a troca.
+    expect((await userForToken(t.db, s.token))?.mustChangePassword).toBe(false);
+    expect((await t.db.auditLog.findMany({ where: { entityId: u.id, action: 'USER_PASSWORD_CHANGED' } })).map((a) => a.actor)).toEqual([u.id]);
   });
 });
