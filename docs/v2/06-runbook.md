@@ -52,7 +52,7 @@ docker compose up -d bot site painel
 
 `apps/vitrine`: site estático de vendas, publicado como a imagem `vitrine` (Caddy mínimo, `mem_limit` 48m) atrás do Caddy da borda.
 
-- **Endereço:** `VITRINE_HOST` no `infra/.env.prod` (padrão `vendas.<DOMAIN>`). Pode ser outro domínio: aponte o DNS para a VPS e o Caddy emite o certificado.
+- **Endereço:** `VITRINE_HOST` no `infra/.env.prod` (padrão `construbot.algoritmi.com.br`, definido no `docker-compose.prod.yml`). Pode ser outro domínio: aponte o DNS para a VPS e o Caddy emite o certificado.
 - **Endereços em uso** (todos apontando para a VPS, `187.41.123.13`):
 
   | Endereço | `.env.prod` | O que abre |
@@ -60,7 +60,7 @@ docker compose up -d bot site painel
   | `elevare.algoritmi.com.br` | `DOMAIN=elevare.algoritmi.com.br` | Site de exemplo (Elevare) |
   | `painel.elevare.algoritmi.com.br` | (derivado de `DOMAIN`) | Painel |
   | `bot.elevare.algoritmi.com.br` | (derivado de `DOMAIN`) | Webhook do WA-AKG |
-  | `construbot.algoritmi.com.br` | `VITRINE_HOST=construbot.algoritmi.com.br` | Site de vendas (precisa do registro A `construbot` no DNS) |
+  | `construbot.algoritmi.com.br` | (padrão do Compose) | Site de vendas |
 
   O site de vendas já usa `https://elevare.algoritmi.com.br` como site de exemplo por padrão (`apps/vitrine/src/conteudo/config.ts`); a variável `DEMO_SITE_URL` só é necessária para trocar.
 - **Links da demonstração e contato de vendas** entram no build. Defina em *Settings → Secrets and variables → Actions → Variables* do repositório:

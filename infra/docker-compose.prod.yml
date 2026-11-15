@@ -18,7 +18,8 @@ services:
     ports: ["80:80", "443:443", "443:443/udp"]
     environment:
       DOMAIN: ${DOMAIN:?defina em infra/.env.prod}
-      VITRINE_HOST: ${VITRINE_HOST:-vendas.${DOMAIN}}
+      # Site de vendas do ConstruBot. Troque em .env.prod (VITRINE_HOST) para outro endereço.
+      VITRINE_HOST: ${VITRINE_HOST:-construbot.algoritmi.com.br}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
