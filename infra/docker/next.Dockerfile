@@ -9,6 +9,7 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/site/package.json apps/site/
 COPY apps/painel/package.json apps/painel/
+COPY apps/vitrine/package.json apps/vitrine/
 COPY apps/bot/package.json apps/bot/
 COPY packages/channel/package.json packages/channel/
 COPY packages/conversation/package.json packages/conversation/

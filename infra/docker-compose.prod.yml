@@ -18,6 +18,7 @@ services:
     ports: ["80:80", "443:443", "443:443/udp"]
     environment:
       DOMAIN: ${DOMAIN:?defina em infra/.env.prod}
+      VITRINE_HOST: ${VITRINE_HOST:-vendas.${DOMAIN}}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -96,6 +97,13 @@ services:
     networks: [internal, web]
     depends_on:
       migrate: { condition: service_completed_successfully }
+
+  # Site de vendas do ConstruBot: só arquivos estáticos (Caddy mínimo).
+  vitrine:
+    <<: *app
+    image: ${IMAGE_PREFIX}/vitrine:${TAG:-latest}
+    mem_limit: 48m
+    networks: [web]
 
   painel:
     <<: *app

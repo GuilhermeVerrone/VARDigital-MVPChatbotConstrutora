@@ -27,6 +27,13 @@ jobs:
           - { name: site,    file: infra/docker/next.Dockerfile,  args: "APP=site" }
           - { name: painel,  file: infra/docker/next.Dockerfile,  args: "APP=painel" }
           - { name: migrate, file: infra/docker/migrate.Dockerfile, args: "" }
+          - name: vitrine
+            file: infra/docker/vitrine.Dockerfile
+            args: |
+              NEXT_PUBLIC_DEMO_SITE_URL=${{ vars.DEMO_SITE_URL }}
+              NEXT_PUBLIC_DEMO_WHATSAPP=${{ vars.DEMO_WHATSAPP }}
+              NEXT_PUBLIC_VENDAS_WHATSAPP=${{ vars.VENDAS_WHATSAPP }}
+              NEXT_PUBLIC_VENDAS_EMAIL=${{ vars.VENDAS_EMAIL }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -74,7 +81,7 @@ jobs:
           # A VPS já guarda o login do GHCR; o token do secret, se existir, renova.
           if [ -n "$GHCR_TOKEN" ]; then echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin; fi
           sed -i "s/^TAG=.*/TAG=$TAG/" .env.prod
-          docker compose -f docker-compose.prod.yml --env-file .env.prod pull bot site painel migrate caddy
+          docker compose -f docker-compose.prod.yml --env-file .env.prod pull bot site painel vitrine migrate caddy
           docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --remove-orphans
           docker image prune -f
           docker compose -f docker-compose.prod.yml --env-file .env.prod ps
