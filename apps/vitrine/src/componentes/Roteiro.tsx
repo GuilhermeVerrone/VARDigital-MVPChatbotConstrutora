@@ -18,7 +18,7 @@ function ler(): Estado {
   return { feitos: [], parei: null };
 }
 
-const href = (para: string) => (para === 'site' ? demoSiteHref() : para === 'whatsapp' ? demoWhatsappHref() : para);
+const href = (para: string): string | null => (para === 'site' ? demoSiteHref() : para === 'whatsapp' ? demoWhatsappHref() : para);
 
 /** Roteiro com marcas pintadas: "feito" e "parei aqui". Lembra onde o visitante parou neste navegador. */
 export function Roteiro({ etapas }: { etapas: EtapaTeste[] }) {
@@ -69,8 +69,8 @@ export function Roteiro({ etapas }: { etapas: EtapaTeste[] }) {
               <ul className="passos-teste">{e.passos.map((p) => <li key={p}>{p}</li>)}</ul>
               <p className="espera"><strong>O que você deve ver:</strong> {e.espera}</p>
               <div className="marcas">
-                {e.link ? (
-                  <a className="botao tinta pequeno" href={href(e.link.para)}>{e.link.texto}<Icone nome="seta" tamanho={18} /></a>
+                {e.link && href(e.link.para) ? (
+                  <a className="botao tinta pequeno" href={href(e.link.para)!}>{e.link.texto}<Icone nome="seta" tamanho={18} /></a>
                 ) : null}
                 <button type="button" className="marca-botao" aria-pressed={feito} onClick={() => alternarFeito(e.id)}>
                   <Icone nome="check" tamanho={18} />{feito ? 'Feito' : 'Marcar como feito'}

@@ -233,9 +233,9 @@ export default function Inicio() {
             </li>
           </ol>
           <div className="acoes">
-            <a className="botao sinal" href={demoSiteHref()}>Abrir o site de exemplo<Icone nome="seta" /></a>
-            <a className="botao contorno" href={demoWhatsappHref()}>Começar pelo WhatsApp<Icone nome="balao" /></a>
-            <Link href="/testar/" style={{ fontWeight: 600 }}>Roteiro completo de teste</Link>
+            {demoSiteHref() ? <a className="botao sinal" href={demoSiteHref()!}>Abrir o site de exemplo<Icone nome="seta" /></a> : null}
+            {demoWhatsappHref() ? <a className="botao contorno" href={demoWhatsappHref()!}>Começar pelo WhatsApp<Icone nome="balao" /></a> : null}
+            <Link className={demoSiteHref() ? undefined : 'botao sinal'} href="/testar/" style={demoSiteHref() ? { fontWeight: 600 } : undefined}>Roteiro completo de teste{demoSiteHref() ? null : <Icone nome="seta" />}</Link>
           </div>
         </div>
       </section>
@@ -261,7 +261,7 @@ export default function Inicio() {
           <h2 id="fecho-titulo">Seu plantão de vendas, <em>aberto no WhatsApp.</em></h2>
           <div className="acoes">
             <Link className="botao sinal" href="/testar/">Testar a demonstração<Icone nome="seta" /></Link>
-            <a className="botao contorno" href={vendasHref()}>Falar com a gente</a>
+            {vendasHref() ? <a className="botao contorno" href={vendasHref()!}>Falar com a gente</a> : null}
           </div>
         </div>
       </section>

@@ -1,6 +1,6 @@
 // Tudo o que muda de uma implantação para outra fica aqui: nome do produto, endereços da demonstração e
-// contato de vendas. Os endereços vêm do ambiente na hora do build (NEXT_PUBLIC_*); sem eles, o site
-// mostra os botões apontando para a seção de teste, sem link quebrado.
+// contato de vendas. Os endereços vêm do ambiente na hora do build (NEXT_PUBLIC_*); sem eles, os botões
+// que dependem deles não aparecem (nenhum botão que não leva a lugar nenhum).
 
 export const PRODUTO = 'ConstruBot';
 
@@ -16,8 +16,8 @@ export const VENDAS_EMAIL = process.env.NEXT_PUBLIC_VENDAS_EMAIL ?? '';
 export const waLink = (digits: string, text?: string): string =>
   `https://wa.me/${digits}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
 
-/** Link para o site de exemplo, ou a seção de teste quando ainda não há endereço. */
-export const demoSiteHref = (path = '/empreendimentos/lumen-urban'): string => (DEMO_SITE_URL ? `${DEMO_SITE_URL}${path}` : '/testar/');
-export const demoWhatsappHref = (): string => (DEMO_WHATSAPP ? waLink(DEMO_WHATSAPP, 'Oi! Vi o anúncio do Lumen Urban') : '/testar/');
-export const vendasHref = (): string =>
-  VENDAS_WHATSAPP ? waLink(VENDAS_WHATSAPP, `Oi! Quero conversar sobre o ${PRODUTO}.`) : VENDAS_EMAIL ? `mailto:${VENDAS_EMAIL}` : '/testar/';
+/** Link para o site de exemplo; null enquanto o endereço não está configurado. */
+export const demoSiteHref = (path = '/empreendimentos/lumen-urban'): string | null => (DEMO_SITE_URL ? `${DEMO_SITE_URL.replace(/\/$/, '')}${path}` : null);
+export const demoWhatsappHref = (): string | null => (DEMO_WHATSAPP ? waLink(DEMO_WHATSAPP, 'Oi! Vi o anúncio do Lumen Urban') : null);
+export const vendasHref = (): string | null =>
+  VENDAS_WHATSAPP ? waLink(VENDAS_WHATSAPP, `Oi! Quero conversar sobre o ${PRODUTO}.`) : VENDAS_EMAIL ? `mailto:${VENDAS_EMAIL}` : null;

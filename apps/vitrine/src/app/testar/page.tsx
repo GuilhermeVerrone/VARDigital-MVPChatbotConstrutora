@@ -19,18 +19,22 @@ export default function Testar() {
             Faça o caminho do seu comprador, do formulário ao resultado. A construtora, os preços e o corretor são de exemplo; a conversa e
             as contas são as do {PRODUTO} de verdade. Dá para parar e voltar depois: a página lembra onde você estava.
           </p>
-          <div className="acoes">
-            <a className="botao sinal" href={demoSiteHref()}>Abrir o site de exemplo<Icone nome="seta" /></a>
-            <a className="botao contorno" href={demoWhatsappHref()}>Começar pelo WhatsApp<Icone nome="balao" /></a>
-          </div>
+          {demoSiteHref() || demoWhatsappHref() ? (
+            <div className="acoes">
+              {demoSiteHref() ? <a className="botao sinal" href={demoSiteHref()!}>Abrir o site de exemplo<Icone nome="seta" /></a> : null}
+              {demoWhatsappHref() ? <a className="botao contorno" href={demoWhatsappHref()!}>Começar pelo WhatsApp<Icone nome="balao" /></a> : null}
+            </div>
+          ) : null}
         </div>
       </section>
       <div className="tapume leitura">
         <div className="faixa" style={{ display: 'block', maxWidth: 860 }}>
           <Roteiro etapas={ROTEIRO} />
-          <p className="roteiro-fim">
-            Ficou alguma dúvida ou quer ver com as regras da sua construtora? <a href={vendasHref()}>Fale com a gente</a>.
-          </p>
+          {vendasHref() ? (
+            <p className="roteiro-fim">
+              Ficou alguma dúvida ou quer ver com as regras da sua construtora? <a href={vendasHref()!}>Fale com a gente</a>.
+            </p>
+          ) : null}
         </div>
       </div>
     </>
