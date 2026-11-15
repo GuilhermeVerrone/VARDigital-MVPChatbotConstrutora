@@ -53,6 +53,16 @@ docker compose up -d bot site painel
 `apps/vitrine`: site estático de vendas, publicado como a imagem `vitrine` (Caddy mínimo, `mem_limit` 48m) atrás do Caddy da borda.
 
 - **Endereço:** `VITRINE_HOST` no `infra/.env.prod` (padrão `vendas.<DOMAIN>`). Pode ser outro domínio: aponte o DNS para a VPS e o Caddy emite o certificado.
+- **Endereços escolhidos** (registros A no DNS de `algoritmi.com.br`, todos para o IP da VPS):
+
+  | Registro | `.env.prod` | O que abre |
+  |---|---|---|
+  | `construbot` | `VITRINE_HOST=construbot.algoritmi.com.br` | Site de vendas |
+  | `demo.construbot` | `DOMAIN=demo.construbot.algoritmi.com.br` | Site de exemplo (Elevare) |
+  | `painel.demo.construbot` | (derivado de `DOMAIN`) | Painel |
+  | `bot.demo.construbot` | (derivado de `DOMAIN`) | Webhook do WA-AKG |
+
+  No GitHub: `gh variable set DEMO_SITE_URL --body "https://demo.construbot.algoritmi.com.br"`.
 - **Links da demonstração e contato de vendas** entram no build. Defina em *Settings → Secrets and variables → Actions → Variables* do repositório:
   - `DEMO_SITE_URL`: o site de exemplo, normalmente `https://<DOMAIN>`;
   - `DEMO_WHATSAPP`: o número do bot, só dígitos com DDI (o mesmo de `SITE_WHATSAPP_NUMBER`);
