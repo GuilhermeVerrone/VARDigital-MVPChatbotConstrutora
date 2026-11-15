@@ -29,4 +29,4 @@ Objetivo: um site para **vender** o produto a construtoras, que também serve de
 
 ## Publicação
 
-Imagem estática `vitrine` (Caddy mínimo, 48 MB), atrás do Caddy da borda em `VITRINE_HOST` (padrão `vendas.<DOMAIN>`). Endereços da demonstração e contato de vendas entram no build pelas variáveis do repositório (`DEMO_SITE_URL`, `DEMO_WHATSAPP`, `VENDAS_WHATSAPP`, `VENDAS_EMAIL`). Detalhes no [runbook](06-runbook.md#site-de-vendas-construbot).
+Imagem estática `vitrine` (Caddy mínimo, 48 MB), atrás do Caddy da borda em `construbot.algoritmi.com.br` (`VITRINE_HOST`). O site de exemplo é `https://elevare.algoritmi.com.br`; o WhatsApp da demonstração e o contato de vendas entram no build pelas variáveis do repositório (`DEMO_WHATSAPP`, `VENDAS_WHATSAPP`, `VENDAS_EMAIL`). Detalhes no [runbook](06-runbook.md#site-de-vendas-construbot).

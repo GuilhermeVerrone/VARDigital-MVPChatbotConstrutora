@@ -52,13 +52,23 @@ docker compose up -d bot site painel
 
 `apps/vitrine`: site estático de vendas, publicado como a imagem `vitrine` (Caddy mínimo, `mem_limit` 48m) atrás do Caddy da borda.
 
-- **Endereço:** `VITRINE_HOST` no `infra/.env.prod` (padrão `vendas.<DOMAIN>`). Pode ser outro domínio: aponte o DNS para a VPS e o Caddy emite o certificado.
+- **Endereço:** `VITRINE_HOST` no `infra/.env.prod` (padrão `construbot.algoritmi.com.br`, definido no `docker-compose.prod.yml`). Pode ser outro domínio: aponte o DNS para a VPS e o Caddy emite o certificado.
+- **Endereços em uso** (todos apontando para a VPS, `187.41.123.13`):
+
+  | Endereço | `.env.prod` | O que abre |
+  |---|---|---|
+  | `elevare.algoritmi.com.br` | `DOMAIN=elevare.algoritmi.com.br` | Site de exemplo (Elevare) |
+  | `painel.elevare.algoritmi.com.br` | (derivado de `DOMAIN`) | Painel |
+  | `bot.elevare.algoritmi.com.br` | (derivado de `DOMAIN`) | Webhook do WA-AKG |
+  | `construbot.algoritmi.com.br` | (padrão do Compose) | Site de vendas |
+
+  O site de vendas já usa `https://elevare.algoritmi.com.br` como site de exemplo por padrão (`apps/vitrine/src/conteudo/config.ts`); a variável `DEMO_SITE_URL` só é necessária para trocar.
 - **Links da demonstração e contato de vendas** entram no build. Defina em *Settings → Secrets and variables → Actions → Variables* do repositório:
   - `DEMO_SITE_URL`: o site de exemplo, normalmente `https://<DOMAIN>`;
   - `DEMO_WHATSAPP`: o número do bot, só dígitos com DDI (o mesmo de `SITE_WHATSAPP_NUMBER`);
   - `VENDAS_WHATSAPP` e/ou `VENDAS_EMAIL`: o contato de vendas.
 
-  Sem elas, os botões apontam para a página `/testar/` (nenhum link quebrado).
+  Sem elas, os botões de WhatsApp e de contato não aparecem (nenhum botão que não leva a lugar nenhum). O site de exemplo já tem padrão: `https://elevare.algoritmi.com.br`.
 - **Demonstração aberta ("teste com o seu celular")** só funciona se o bot aceitar qualquer telefone e mandar o 1º contato a qualquer hora: `ALLOWED_PHONES=*` e `FIRST_CONTACT_START=00:00`, `FIRST_CONTACT_END=24:00`, `FIRST_CONTACT_DAYS=0-6` no `.env.prod`. Avalie o `FIRST_CONTACT_MAX_PER_HOUR` e rode o `demo-reset` com frequência (os visitantes deixam leads de teste).
 - **Atualizar prints e conversas** depois de mudar o produto: `pnpm vitrine:capturas` (sobe a stack do e2e, sem tocar no seu banco) e commite `apps/vitrine/public/produto/` e `apps/vitrine/src/conteudo/`.
 - **O roteiro de teste do site** é verificado por `e2e/tests/roteiro-vitrine.spec.ts` (`pnpm test:e2e`). Se ele quebrar, ajuste `apps/vitrine/src/conteudo/roteiro.ts`.
