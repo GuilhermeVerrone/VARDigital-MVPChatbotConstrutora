@@ -25,10 +25,10 @@ export default function Testar() {
           </div>
         </div>
       </section>
-      <div className="leitura sobre-chapa">
+      <div className="tapume leitura">
         <div className="faixa" style={{ display: 'block', maxWidth: 860 }}>
           <Roteiro etapas={ROTEIRO} />
-          <p style={{ marginTop: 40 }}>
+          <p className="roteiro-fim">
             Ficou alguma dúvida ou quer ver com as regras da sua construtora? <a href={vendasHref()}>Fale com a gente</a>.
           </p>
         </div>

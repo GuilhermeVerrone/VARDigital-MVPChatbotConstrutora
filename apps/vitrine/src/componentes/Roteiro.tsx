@@ -66,7 +66,7 @@ export function Roteiro({ etapas }: { etapas: EtapaTeste[] }) {
               <span className="num" aria-hidden="true">{i + 1}</span>
               {feito ? <span className="carimbo" aria-hidden="true">FEITO</span> : parei ? <span className="carimbo parei" aria-hidden="true">PAREI AQUI</span> : null}
               <h3>{e.titulo}</h3>
-              <ol>{e.passos.map((p) => <li key={p}>{p}</li>)}</ol>
+              <ul className="passos-teste">{e.passos.map((p) => <li key={p}>{p}</li>)}</ul>
               <p className="espera"><strong>O que você deve ver:</strong> {e.espera}</p>
               <div className="marcas">
                 {e.link ? (

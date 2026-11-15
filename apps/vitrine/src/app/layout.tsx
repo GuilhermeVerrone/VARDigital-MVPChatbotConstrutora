@@ -35,7 +35,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
         </header>
-        <div className="travessia" aria-hidden="true"><span className="travessia-marco" /></div>
         <main id="conteudo">{children}</main>
         <footer className="rodape">
           <div className="faixa">

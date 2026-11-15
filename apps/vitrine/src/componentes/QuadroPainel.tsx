@@ -1,7 +1,7 @@
 'use client';
 
 import { ListaDeAbas, useAbas } from './Abas';
-import { Print, Visor } from './Visor';
+import { DicaAmpliar, Print, Visor } from './Visor';
 
 export interface TelaPainel { arquivo: string; titulo: string; resumo: string; texto: string; alt: string }
 
@@ -21,8 +21,9 @@ export function QuadroPainel({ telas }: { telas: TelaPainel[] }) {
       </ListaDeAbas>
       <div className="quadro-visor" {...painel}>
         <Visor origem="Print real do painel" detalhe="Construtora e valores de exemplo">
-          <Print key={t.arquivo} arquivo={t.arquivo} alt={t.alt} />
+          <Print key={t.arquivo} arquivo={t.arquivo} alt={t.alt} ampliar />
         </Visor>
+        <DicaAmpliar />
         <p className="quadro-texto">{t.texto}</p>
       </div>
     </div>

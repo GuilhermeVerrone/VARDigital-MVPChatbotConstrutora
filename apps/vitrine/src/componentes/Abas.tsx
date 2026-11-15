@@ -35,5 +35,5 @@ export function useAbas(total: number) {
 }
 
 export function ListaDeAbas({ rotulo, children, className }: { rotulo: string; children: ReactNode; className?: string }) {
-  return <div role="tablist" aria-label={rotulo} aria-orientation="vertical" className={className}>{children}</div>;
+  return <div role="tablist" aria-label={rotulo} className={className}>{children}</div>;
 }

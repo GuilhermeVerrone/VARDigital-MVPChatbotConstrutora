@@ -21,9 +21,15 @@ export function Visor({ children, origem, detalhe, className }: { children: Reac
   );
 }
 
-/** Print real do produto dentro do visor. */
-export function Print({ arquivo, alt, prioridade = false }: { arquivo: string; alt: string; prioridade?: boolean }) {
+/** Print real do produto dentro do visor. Com `ampliar`, o print abre em tamanho real (útil no celular). */
+export function Print({ arquivo, alt, prioridade = false, ampliar = false }: { arquivo: string; alt: string; prioridade?: boolean; ampliar?: boolean }) {
   const m = (medidas as Record<string, { w: number; h: number }>)[arquivo];
   if (!m) throw new Error(`print ${arquivo} não existe; rode pnpm vitrine:capturas`);
-  return <img src={`/produto/${arquivo}.webp`} alt={alt} width={m.w} height={m.h} loading={prioridade ? 'eager' : 'lazy'} decoding="async" />;
+  const img = <img src={`/produto/${arquivo}.webp`} alt={alt} width={m.w} height={m.h} loading={prioridade ? 'eager' : 'lazy'} decoding="async" />;
+  return ampliar ? <a className="ampliar" href={`/produto/${arquivo}.webp`} target="_blank" rel="noopener" aria-label={`${alt} Abrir em tamanho real.`}>{img}</a> : img;
+}
+
+/** Aviso, só no celular, de que o print abre em tamanho real. */
+export function DicaAmpliar() {
+  return <span className="ampliar-dica">Toque no print para ver em tamanho real</span>;
 }

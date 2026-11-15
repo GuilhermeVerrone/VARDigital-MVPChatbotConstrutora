@@ -64,15 +64,28 @@ test('site de exemplo: home, empreendimento e formulário', async ({ browser }) 
     await shot(page, `site-home${suffix}`);
     await page.goto(`${SITE()}/empreendimentos/lumen-urban`);
     await shot(page, `site-empreendimento${suffix}`);
+    // Formulário como o comprador o encontra: campos preenchidos e os aceites DESMARCADOS. O recorte vai
+    // do topo do formulário até antes dos aceites (o texto legal completo fica no site de exemplo).
     const form = page.locator('form').filter({ has: page.locator('input[name="phone"]') });
     await form.scrollIntoViewIfNeeded();
     await form.locator('input[name="name"]').fill('Ana Souza');
     await form.locator('input[name="phone"]').fill('(41) 98888-0001');
-    await form.locator('input[name="consent"]').check();
-    await form.locator('input[name="optin"]').check();
-    await form.screenshot({ path: join(SHOTS, `site-formulario${suffix}.png`), animations: 'disabled' });
-    execFileSync('cwebp', ['-quiet', '-q', '84', join(SHOTS, `site-formulario${suffix}.png`), '-o', join(SHOTS, `site-formulario${suffix}.webp`)]);
-    rmSync(join(SHOTS, `site-formulario${suffix}.png`));
+    // Sem foco em campo nenhum e sem o cabeçalho fixo do site por cima do recorte.
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      document.querySelectorAll('header').forEach((h) => { h.style.position = 'static'; });
+    });
+    const clip = await page.evaluate(() => {
+      const f = [...document.querySelectorAll('form')].find((x) => x.querySelector('input[name="phone"]'))!;
+      const top = f.getBoundingClientRect().top + window.scrollY;
+      const aceite = f.querySelector('input[name="consent"]')!.closest('label, div, p')!.getBoundingClientRect().top + window.scrollY;
+      const r = f.getBoundingClientRect();
+      return { x: r.left, y: top, width: r.width, height: Math.max(200, aceite - top - 8) };
+    });
+    const png = join(SHOTS, `site-formulario${suffix}.png`);
+    await page.screenshot({ path: png, fullPage: true, clip, animations: 'disabled', caret: 'hide' });
+    execFileSync('cwebp', ['-quiet', '-q', '84', png, '-o', join(SHOTS, `site-formulario${suffix}.webp`)]);
+    rmSync(png);
     await ctx.close();
   }
 });

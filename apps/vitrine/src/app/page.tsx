@@ -32,7 +32,7 @@ export default function Inicio() {
       {/* Abertura: o tapume com a promessa, a placa da obra e o visor com a conversa real */}
       <section className="tapume abertura" aria-labelledby="promessa">
         <div className="faixa">
-          <div>
+          <div className="abertura-texto">
             <h1 id="promessa" className="promessa">O lead chega ao corretor <em>com a conta feita.</em></h1>
             <p className="apoio">
               O {PRODUTO} atende no WhatsApp quem se interessou pelo seu lançamento, a qualquer hora, faz a simulação nas formas de
@@ -42,6 +42,11 @@ export default function Inicio() {
               <Link className="botao sinal" href="/testar/">Testar a demonstração<Icone nome="seta" /></Link>
               <Link className="botao contorno" href="#como-funciona">Ver como funciona</Link>
             </div>
+          </div>
+          <Visor origem="Conversa real do ConstruBot" detalhe="Construtora e valores de exemplo">
+            <Conversa mensagens={carla.mensagens} titulo="Elevare Construtora" subtitulo="Carla Dias · Lumen Urban" tocar inicio={1} rotulo="Conversa de exemplo com a compradora Carla" />
+          </Visor>
+          <div className="abertura-placa">
             <Placa
               titulo={PRODUTO}
               comoTitulo={false}
@@ -53,9 +58,6 @@ export default function Inicio() {
               rodape="Simulação indicativa, nas condições que a sua construtora publica. A aprovação do crédito é do banco."
             />
           </div>
-          <Visor origem="Conversa real do ConstruBot" detalhe="Construtora e valores de exemplo">
-            <Conversa mensagens={carla.mensagens} titulo="Elevare Construtora" subtitulo="Carla Dias · Lumen Urban" tocar inicio={1} rotulo="Conversa de exemplo com a compradora Carla" />
-          </Visor>
         </div>
       </section>
 
@@ -81,20 +83,24 @@ export default function Inicio() {
             <h2 id="como" className="secao-titulo">Do anúncio ao corretor, em quatro passos.</h2>
             <p className="secao-apoio">Tudo o que aparece aqui saiu do produto funcionando: telas e mensagens reais, com uma construtora de exemplo.</p>
           </div>
-          <ol className="passos">
+          <div className="trilha">
+          <span className="trilha-marco" aria-hidden="true">lead</span>
+          <ol className="passos" aria-label="O caminho do lead, do interesse ao corretor">
             <li className="passo">
               <div className="passo-texto">
                 <span className="passo-numero" aria-hidden="true">1</span>
+                <span className="estacao">Interessado</span>
                 <h3>O interessado pede a simulação.</h3>
                 <p>No site do empreendimento, ele escolhe a planta e deixa nome e WhatsApp em &quot;Simule sua condição&quot;. Os aceites de privacidade e de contato vêm desmarcados, como manda a lei.</p>
               </div>
               <Visor origem="Print real do site de exemplo" detalhe="Formulário do Lumen Urban">
-                <Print arquivo="site-formulario" alt="Formulário Simule sua condição preenchido com nome, WhatsApp e os dois aceites marcados." />
+                <Print arquivo="site-formulario" alt="Formulário Simule sua condição com a planta escolhida, nome e WhatsApp preenchidos." />
               </Visor>
             </li>
             <li className="passo">
               <div className="passo-texto">
                 <span className="passo-numero" aria-hidden="true">2</span>
+                <span className="estacao">Na conversa</span>
                 <h3>O {PRODUTO} chama no WhatsApp.</h3>
                 <p>O interessado recebe uma mensagem com o nome dele e o empreendimento, no horário que você definir. Responde &quot;sim&quot; e segue com perguntas curtas, uma de cada vez. Quem chama direto pelo WhatsApp é atendido na hora, de dia ou de noite.</p>
               </div>
@@ -105,6 +111,7 @@ export default function Inicio() {
             <li className="passo">
               <div className="passo-texto">
                 <span className="passo-numero" aria-hidden="true">3</span>
+                <span className="estacao">Simulado</span>
                 <h3>A conta sai na hora, nas suas regras.</h3>
                 <p>Com renda, entrada e forma de pagamento, ele monta o plano com as condições que a sua construtora publicou: ato, mensais, reforços, parcela das chaves e a estimativa do banco. E explica o resultado em português claro.</p>
               </div>
@@ -115,6 +122,7 @@ export default function Inicio() {
             <li className="passo">
               <div className="passo-texto">
                 <span className="passo-numero" aria-hidden="true">4</span>
+                <span className="estacao">Pronto para o corretor</span>
                 <h3>O corretor recebe o lead pronto.</h3>
                 <p>No WhatsApp do corretor chegam o resumo do cliente, o plano, o parecer, um próximo passo sugerido e o PDF. Ele liga sabendo o que oferecer.</p>
               </div>
@@ -123,6 +131,7 @@ export default function Inicio() {
               </Visor>
             </li>
           </ol>
+          </div>
         </div>
       </section>
 

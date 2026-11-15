@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Conversa } from '@/componentes/Conversa';
 import { Icone } from '@/componentes/Icone';
-import { Print, Visor } from '@/componentes/Visor';
+import { DicaAmpliar, Print, Visor } from '@/componentes/Visor';
+import medidas from '@/conteudo/prints.json';
 import { PRODUTO } from '@/conteudo/config';
 import { conversa } from '@/conteudo/conversas';
 import { FUNCIONALIDADES, type Funcionalidade } from '@/conteudo/funcionalidades';
@@ -29,6 +30,12 @@ function Mensagens({ f }: { f: Funcionalidade }) {
   );
 }
 
+/** Print alto (celular, PDF) vai ao lado dos passos; print largo (tela do painel) ocupa a largura toda. */
+const alto = (arquivo: string) => {
+  const m = (medidas as Record<string, { w: number; h: number }>)[arquivo];
+  return !!m && m.h > m.w;
+};
+
 export default function Funcionalidades() {
   return (
     <>
@@ -38,7 +45,7 @@ export default function Funcionalidades() {
           <p>Do formulário do site ao painel da construtora: para que serve cada parte, quem usa e o passo a passo, com as telas reais do produto.</p>
         </div>
       </section>
-      <div className="leitura sobre-chapa">
+      <div className="tapume leitura">
         <div className="faixa">
           <nav className="indice" aria-label="Funcionalidades">
             <h2>Nesta página</h2>
@@ -46,24 +53,45 @@ export default function Funcionalidades() {
               {FUNCIONALIDADES.map((f) => <li key={f.id}><a href={`#${f.id}`}>{f.titulo}</a></li>)}
             </ol>
           </nav>
-          <div>
-            {FUNCIONALIDADES.map((f) => (
-              <article key={f.id} id={f.id} className="funcionalidade" aria-labelledby={`${f.id}-t`}>
-                <h2 id={`${f.id}-t`}>{f.titulo}</h2>
-                <ul className="quem" aria-label="Quem usa">{f.quem.map((q) => <li key={q}>{q}</li>)}</ul>
-                <p>{f.resumo}</p>
-                <ol className="etapas">{f.passos.map((p) => <li key={p}><span>{p}</span></li>)}</ol>
-                <div className={`prints${(f.prints?.length ?? 0) + (f.conversa ? 1 : 0) > 1 ? ' dois' : ''}`}>
-                  <Mensagens f={f} />
-                  {f.prints?.map((p) => (
-                    <Visor key={p.arquivo} origem={p.legenda} detalhe="Print real · dados de exemplo">
-                      <Print arquivo={p.arquivo} alt={p.alt} />
-                    </Visor>
-                  ))}
-                </div>
-                {f.dica ? <p className="dica"><strong>Bom saber.</strong> {f.dica}</p> : null}
-              </article>
-            ))}
+          <div className="folha">
+            {FUNCIONALIDADES.map((f) => {
+              const lado = (f.prints ?? []).filter((p) => alto(p.arquivo));
+              const largos = (f.prints ?? []).filter((p) => !alto(p.arquivo));
+              const temLado = lado.length > 0 || !!f.conversa;
+              return (
+                <article key={f.id} id={f.id} className="funcionalidade" aria-labelledby={`${f.id}-t`}>
+                  <h2 id={`${f.id}-t`}>{f.titulo}</h2>
+                  <ul className="quem" aria-label="Quem usa">{f.quem.map((q) => <li key={q}>{q}</li>)}</ul>
+                  <p>{f.resumo}</p>
+                  <div className={`func-corpo${temLado ? ' com-lado' : ''}`}>
+                    <ol className="etapas">{f.passos.map((p) => <li key={p}><span>{p}</span></li>)}</ol>
+                    {temLado ? (
+                      <div className="prints">
+                        <Mensagens f={f} />
+                        {lado.map((p) => (
+                          <Visor key={p.arquivo} origem={p.legenda} detalhe="Print real · dados de exemplo">
+                            <Print arquivo={p.arquivo} alt={p.alt} ampliar />
+                          </Visor>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  {largos.length ? (
+                    <div className="prints">
+                      {largos.map((p) => (
+                        <div key={p.arquivo}>
+                          <Visor origem={p.legenda} detalhe="Print real · dados de exemplo">
+                            <Print arquivo={p.arquivo} alt={p.alt} ampliar />
+                          </Visor>
+                          <DicaAmpliar />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {f.dica ? <p className="dica"><strong>Bom saber.</strong> {f.dica}</p> : null}
+                </article>
+              );
+            })}
             <p><Link className="botao tinta" href="/testar/">Testar a demonstração<Icone nome="seta" /></Link></p>
           </div>
         </div>
