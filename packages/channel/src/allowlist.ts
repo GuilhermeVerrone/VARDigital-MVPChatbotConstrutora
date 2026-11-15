@@ -17,7 +17,20 @@ export interface PhoneAllowlist {
   isAllowed(jidOrPhone: string): boolean;
 }
 
+/** Valor de ALLOWED_PHONES que abre o bot a qualquer número (produção). Opt-in explícito: o padrão é a lista. */
+export const OPEN_ALLOWLIST = '*';
+
+/** Modo aberto: qualquer conversa individual (telefone ou JID/LID). Grupos, listas de transmissão e canais seguem recusados. */
+const openAllowlist: PhoneAllowlist = {
+  isAllowed(jidOrPhone) {
+    const v = jidOrPhone.trim();
+    if (v.includes('@')) return !/@(g\.us|broadcast|newsletter)$/.test(v) && v.split('@')[0] !== '';
+    return /^\+?[\d\s()-]{8,20}$/.test(v);
+  },
+};
+
 export function createPhoneAllowlist(phones: string[]): PhoneAllowlist {
+  if (phones.some((p) => p.trim() === OPEN_ALLOWLIST)) return openAllowlist;
   const allowed = new Set(phones.map(canonicalPhone).filter((p) => p !== ''));
   if (allowed.size === 0) throw new Error('lista de telefones permitidos vazia');
   return {

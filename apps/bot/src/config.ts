@@ -17,11 +17,12 @@ const envSchema = z.object({
   WA_AKG_API_KEY: z.string().min(1, 'WA_AKG_API_KEY é obrigatória (gerada por infra/scripts/wa-akg-bootstrap.sh)'),
   WA_AKG_SESSION_ID: z.string().min(1).default('piloto'),
   // Telefones que o bot atende e para os quais envia (separados por vírgula). Obrigatório:
-  // sem lista o bot não sobe, para nunca responder a quem não deveria.
+  // sem lista o bot não sobe, para nunca responder a quem não deveria. `*` abre o bot a qualquer
+  // número (produção, opt-in explícito); grupos e transmissões continuam recusados.
   ALLOWED_PHONES: z
     .string()
     .transform((v) => v.split(',').map((x) => x.trim()).filter(Boolean))
-    .pipe(z.array(z.string().regex(/^\+?[\d\s()-]{10,20}$/, 'telefone inválido')).min(1, 'ALLOWED_PHONES precisa de pelo menos um telefone')),
+    .pipe(z.array(z.string().regex(/^(\*|\+?[\d\s()-]{10,20})$/, 'telefone inválido (ou * para liberar todos)')).min(1, 'ALLOWED_PHONES precisa de pelo menos um telefone')),
   // Fila de entrada: intervalo de consulta, tempo de reserva por mensagem e tentativas.
   INBOX_POLL_MS: z.coerce.number().int().positive().default(1000),
   INBOX_LOCK_MS: z.coerce.number().int().positive().default(120_000),
