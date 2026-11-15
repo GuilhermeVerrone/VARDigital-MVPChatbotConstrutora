@@ -1,3 +1,5 @@
+/// <reference lib="dom" />
+// page.evaluate roda no navegador: o tsconfig raiz não inclui a lib DOM.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
