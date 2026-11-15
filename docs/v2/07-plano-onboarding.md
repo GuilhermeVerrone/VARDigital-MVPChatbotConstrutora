@@ -1,56 +1,32 @@
-# V2 · 07 — Plano do onboarding do cliente (Fase 18)
+# V2 · 07 — Site de vendas do ConstruBot (Fase 18)
 
-Objetivo: entregar à construtora um guia de onboarding completo, cobrindo todas as funcionalidades, com um roteiro de testes passo a passo e prints. Decisões aprovadas pelo usuário em 2026-11-07:
+Objetivo: um site para **vender** o produto a construtoras, que também serve de guia de uso depois da venda. Público: diretor ou gerente comercial de construtora, não técnico, que abre o link no celular.
 
-- **Formato:** Markdown no repositório (`docs/onboarding/`) como fonte, mais um PDF exportado para entregar ao cliente.
-- **Lacunas do produto entram na fase:** tela de usuários e troca de senha (sem elas o onboarding não cobre o corretor).
-- **Prints gerados por script** (Playwright sobre a stack do e2e), reproduzíveis; prints reais do celular só no ensaio publicado.
+## Decisões do usuário
 
-## Lacunas que o onboarding expõe
+- **Nome do produto:** ConstruBot. A Elevare continua só como construtora fictícia das telas e conversas.
+- **Sem assunto técnico** no site.
+- **Ação principal:** o visitante testa sozinho, com o próprio celular (site de exemplo + WhatsApp da demonstração). O painel aparece por prints: um painel aberto mostraria dados de outros visitantes.
+- **Preço:** sob consulta.
+- **Visual:** "Tapume de obra", escolhido na página de decisão da skill de design (tapume pintado, placa de obra, visores com o produto funcionando).
 
-1. Não há tela de usuários (pendente desde a Fase 14): não dá para criar corretor ou gerente pelo painel.
-2. Não há troca de senha; a senha do admin do seed é pública no repositório.
-3. A demo nunca foi ensaiada no ambiente publicado (prints reais do WhatsApp dependem disso).
-4. Limitações a declarar: sem botões de resposta rápida (Fase 9), dados `ILUSTRATIVO`, tom das mensagens em aberto (`ajustes.txt` item 4).
+## O que o site tem (`apps/vitrine`)
 
-## Estrutura do guia
+- **Página principal:** promessa com a conversa real tocando, o problema, como funciona em 4 passos, as 3 formas de pagamento (conversas reais), o que o corretor recebe (PDF real), o painel (8 telas), privacidade e implantação, teste com o celular, dúvidas e fecho.
+- **Funcionalidades** (`/funcionalidades/`): 16 seções, cada uma com quem usa, passo a passo e prints ou conversa real.
+- **Teste com o seu celular** (`/testar/`): roteiro de 12 etapas com marcas "feito" e "parei aqui", guardadas no navegador.
 
-| # | Seção | Público |
-|---|---|---|
-| 1 | Visão geral: o que o produto faz, jornada site → WhatsApp → corretor → painel, glossário | Todos |
-| 2 | Primeiro acesso: login, troca de senha, papéis | Todos |
-| 3 | Jornada do comprador: site, formulário, 1º contato, 3 modos, resultado, PDF | Gestor, marketing |
-| 4 | Guia do Admin/Gerente: empreendimentos, condições, financiamento, corretores, usuários, fluxo, simulador, WhatsApp, auditoria | Admin, gerente |
-| 5 | Guia do Corretor: meus leads, detalhe, PDF, assumir/devolver atendimento | Corretor |
-| 6 | Privacidade (LGPD): consentimento, double opt-in, exclusão, retenção | Gestor, jurídico |
-| 7 | Roteiro de testes com prints | Quem homologa |
-| 8 | Problemas comuns | Operação |
-| 9 | Limitações conhecidas e checklist de go-live | Gestor |
+## Como a prova é feita
 
-## Roteiro de testes
+- `pnpm vitrine:capturas` sobe a stack do e2e, percorre o site e o painel e conversa com o bot como as personas de exemplo. Grava os prints em `apps/vitrine/public/produto/` e as conversas em `apps/vitrine/src/conteudo/conversas.json`. Nada é desenhado à mão.
+- `e2e/tests/roteiro-vitrine.spec.ts` executa o roteiro de teste do site exatamente como está escrito. Se o atendimento mudar, o teste quebra.
 
-Cada caso tem pré-condição, passos, resultado esperado e print.
+## Lacunas do produto resolvidas na fase
 
-- **Site:** T01 home com preços do banco · T02 página do empreendimento · T03 formulário (consentimento obrigatório, telefone inválido) · T04 obrigado com `ELV-xxxx` · T05 reenvio não duplica · T06 privacidade.
-- **WhatsApp:** T07 1º contato + "sim" · T08 "não" encerra · T09 início pelo WhatsApp · T10–T12 os 3 modos · T13 correção de dado · T14 ajuste de entrada/prazo · T15 pedir corretor · T16 pedir exclusão · T17 card e PDF do corretor.
-- **Painel:** T18 login e bloqueio · T19 início/funil · T20 filtros de leads · T21 detalhe e PDF · T22 atribuir corretor · T23 assumir/devolver handoff · T24 exclusão · T25 empreendimentos e unidades · T26 condições (rascunho, prévia, publicar, diff) · T27 próxima simulação muda · T28 financiamento · T29 corretores · T30 usuários · T31 fluxo do bot · T32 simulador · T33 status do WhatsApp · T34 auditoria · T35 papéis.
+- Tela de usuários (criar acessos de corretor e gerente).
+- Troca de senha ("Minha conta") e aviso de senha provisória.
+- Nota interna que aparecia no card do corretor.
 
-## Prints
+## Publicação
 
-- **Automático:** `e2e/onboarding/shots.spec.ts` sobe a stack do e2e, percorre os casos e salva em `docs/onboarding/img/Txx-*.png`. Data e seed fixos, desktop para o painel, desktop e mobile para o site, marcadores numerados injetados por CSS. Comando: `pnpm docs:shots`.
-- **WhatsApp no automático:** página neutra de transcrição (balões genéricos, sem a marca do WhatsApp) a partir do que o WA-AKG falso registrou.
-- **Manual:** checklist de prints reais no celular (T07, T10–T12, T15, T17) no ambiente publicado.
-
-## Partes (um commit cada, branch `v2/fase-18-onboarding`)
-
-1. Tela de usuários no painel (criar, desativar, papel, vínculo com corretor, auditoria, testes de permissão).
-2. Troca de senha ("Minha conta") e aviso de senha do seed.
-3. Página de transcrição do WhatsApp falso.
-4. Script de prints e `pnpm docs:shots`.
-5. `docs/onboarding/` com as seções 1–9 e os prints.
-6. Exportação do guia para PDF.
-7. Ensaio no ambiente publicado, prints reais e `docs/fases/fase-18.md`.
-
-**Aceite:** `pnpm check` e `pnpm test:e2e` verdes; `pnpm docs:shots` gera todos os prints; todo caso T01–T35 com passos, resultado esperado e print; uma pessoa de fora homologa só com o guia.
-
-**Depende de:** a parte 7 exige o deploy e o número dedicado conectado. As partes 1–6 rodam localmente.
+Imagem estática `vitrine` (Caddy mínimo, 48 MB), atrás do Caddy da borda em `VITRINE_HOST` (padrão `vendas.<DOMAIN>`). Endereços da demonstração e contato de vendas entram no build pelas variáveis do repositório (`DEMO_SITE_URL`, `DEMO_WHATSAPP`, `VENDAS_WHATSAPP`, `VENDAS_EMAIL`). Detalhes no [runbook](06-runbook.md#site-de-vendas-construbot).
