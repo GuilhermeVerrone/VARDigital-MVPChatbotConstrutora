@@ -169,4 +169,5 @@ test('painel: telas da gestão e do corretor', async ({ page }) => {
   }
   await page.waitForTimeout(400);
   await shot(page, 'painel-simulador');
+  execFileSync('node', [join(ROOT, 'apps/vitrine/scripts/medidas.mjs')], { stdio: 'inherit' });
 });

@@ -20,3 +20,6 @@ infra/backups/
 e2e/.output/
 test-results/
 playwright-report/
+apps/vitrine/out/
+apps/vitrine/.impeccable/review/
+apps/vitrine/.impeccable/hook.cache.json
