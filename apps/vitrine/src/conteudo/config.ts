@@ -5,7 +5,7 @@
 export const PRODUTO = 'ConstruBot';
 
 /** Site de exemplo da construtora fictícia (onde o visitante preenche o formulário). */
-export const DEMO_SITE_URL = process.env.NEXT_PUBLIC_DEMO_SITE_URL ?? '';
+export const DEMO_SITE_URL = process.env.NEXT_PUBLIC_DEMO_SITE_URL || 'https://elevare.algoritmi.com.br';
 /** Número de WhatsApp da demonstração, só dígitos com DDI (ex.: 5541999990000). */
 export const DEMO_WHATSAPP = process.env.NEXT_PUBLIC_DEMO_WHATSAPP ?? '';
 /** WhatsApp de vendas do ConstruBot, só dígitos com DDI. */
