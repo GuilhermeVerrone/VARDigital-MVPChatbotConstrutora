@@ -1,0 +1,443 @@
+[
+  {
+    "id": "ana",
+    "nome": "Ana Souza",
+    "modo": "À vista",
+    "resumo": "Quer pagar tudo de uma vez.",
+    "mensagens": [
+      {
+        "de": "bot",
+        "texto": "Oi, Ana! Aqui é a Elevare. Você pediu uma simulação do Lumen Urban no nosso site, certo? Responda *sim* para continuarmos por aqui."
+      },
+      {
+        "de": "lead",
+        "texto": "sim"
+      },
+      {
+        "de": "bot",
+        "texto": "Perfeito, Ana! Vou te fazer algumas perguntas rápidas e já te mostro como a conta fica."
+      },
+      {
+        "de": "bot",
+        "texto": "Qual tipo de unidade do Lumen Urban você procura?\n1. 1 dormitório\n2. 2 dormitórios\n3. Studio\nResponda com o número."
+      },
+      {
+        "de": "lead",
+        "texto": "1"
+      },
+      {
+        "de": "bot",
+        "texto": "Anotado, interesse em 1 dormitório."
+      },
+      {
+        "de": "bot",
+        "texto": "Como você pensa em pagar o imóvel?\n1. Pagar à vista\n2. Dar a entrada de uma vez e financiar o saldo\n3. Parcelar a entrada com a construtora\nResponda com o número."
+      },
+      {
+        "de": "lead",
+        "texto": "1"
+      },
+      {
+        "de": "bot",
+        "texto": "Conferindo o que anotei:\n• Nome: Ana Souza\n• Telefone: (41) 98888-0001\n• Empreendimento: Lumen Urban\n• Interesse: 1 dormitório\n• Forma de pagamento: à vista\n\nEstá tudo certo? (sim/não)"
+      },
+      {
+        "de": "lead",
+        "texto": "sim"
+      },
+      {
+        "de": "bot",
+        "texto": "Prontinho, anotei tudo! 🙌 Já estou fazendo as contas, é rapidinho."
+      },
+      {
+        "de": "bot",
+        "texto": "Ana, fiz a simulação do *Lumen Urban* para o apartamento de *1 dormitório* (unidade LU-0912, 39 m²), com valor de R$ 389.000.\n\n✅ Pagando à vista, a condição fica assim.\n\n*Pagamento à vista*\n• Valor de tabela: R$ 389.000\n• Desconto à vista: R$ 31.120 (8%)\n• Total a pagar: R$ 357.880"
+      },
+      {
+        "de": "bot",
+        "texto": "*Importante:* esta simulação é *indicativa* e não é uma proposta nem uma reserva da unidade. Os valores e condições dependem da confirmação da construtora e da disponibilidade da unidade, e podem mudar sem aviso.\n\nSimulação gerada em 15/11/2026 às 19:53.\n\n_Condição comercial ILUSTRATIVA (de exemplo), ainda não validada pela construtora._"
+      },
+      {
+        "de": "bot",
+        "texto": "Já passei o seu resumo para um corretor da nossa equipe. Ele deve te chamar por aqui em breve."
+      },
+      {
+        "de": "bot",
+        "texto": "Quer que um corretor entre em contato agora para combinar o pagamento à vista? (sim/não)"
+      }
+    ],
+    "corretor": [
+      {
+        "de": "bot",
+        "texto": "🔥 LEAD QUENTE — ✅ Viável\n(classe pelo parecer da simulação; o score numérico configurável vem depois do MVP)\n\n👤 CLIENTE\nAna Souza | (41) 98888-0001\n\n🏢 INTERESSE\nLumen Urban | 1 dormitório, unidade LU-0912 | Valor: R$ 389.000\n\n💰 SIMULAÇÃO (indicativa)\nForma de pagamento: Pagamento à vista\nDesconto à vista: R$ 31.120 (8%) | Total a pagar: R$ 357.880\nParecer: ✅ Viável\nCondição comercial: 2026-11-lumen-urban-ILUSTRATIVO-v1 (ILUSTRATIVA) | Gerada em 15/11/2026 às 19:53\n\n⚠️ ALERTAS\n• Condição comercial ILUSTRATIVA: não usar para promessa de condições\n\n🎯 PRÓXIMO PASSO SUGERIDO\nLigar em até 5 min e agendar visita ao stand: o lead quer pagar à vista (R$ 357.880 com o desconto).\n\n📎 PDF da simulação anexo"
+      },
+      {
+        "de": "bot",
+        "texto": "PDF da simulação",
+        "arquivo": "simulacao-ana-2026-11-15.pdf"
+      }
+    ]
+  },
+  {
+    "id": "bruno",
+    "nome": "Bruno Lima",
+    "modo": "Entrada de uma vez + financiamento",
+    "resumo": "Tem R$ 120 mil e financia o saldo.",
+    "mensagens": [
+      {
+        "de": "bot",
+        "texto": "Oi, Bruno! Aqui é a Elevare. Você pediu uma simulação do Lumen Urban no nosso site, certo? Responda *sim* para continuarmos por aqui."
+      },
+      {
+        "de": "lead",
+        "texto": "sim"
+      },
+      {
+        "de": "bot",
+        "texto": "Perfeito, Bruno! Vou te fazer algumas perguntas rápidas e já te mostro como a conta fica."
+      },
+      {
+        "de": "bot",
+        "texto": "Qual tipo de unidade do Lumen Urban você procura?\n1. 1 dormitório\n2. 2 dormitórios\n3. Studio\nResponda com o número."
+      },
+      {
+        "de": "lead",
+        "texto": "1"
+      },
+      {
+        "de": "bot",
+        "texto": "Anotado, interesse em 1 dormitório."
+      },
+      {
+        "de": "bot",
+        "texto": "Como você pensa em pagar o imóvel?\n1. Pagar à vista\n2. Dar a entrada de uma vez e financiar o saldo\n3. Parcelar a entrada com a construtora\nResponda com o número."
+      },
+      {
+        "de": "lead",
+        "texto": "2"
+      },
+      {
+        "de": "bot",
+        "texto": "Quanto você consegue dar de entrada de uma vez, sem contar o FGTS? Se nada por enquanto, responda *0*."
+      },
+      {
+        "de": "lead",
+        "texto": "120 mil"
+      },
+      {
+        "de": "bot",
+        "texto": "Perfeito, entrada de R$ 120.000.\n\nPara simular, qual é a renda bruta mensal da família? Pode somar a de quem vai comprar junto."
+      },
+      {
+        "de": "lead",
+        "texto": "9 mil"
+      },
+      {
+        "de": "bot",
+        "texto": "Entendi, renda de R$ 9.000/mês."
+      },
+      {
+        "de": "bot",
+        "texto": "Qual é o seu tipo de renda?\n1. CLT\n2. Autônomo\n3. Servidor público\n4. Aposentado/Pensionista\n5. Outros\nResponda com o número."
+      },
+      {
+        "de": "lead",
+        "texto": "clt"
+      },
+      {
+        "de": "bot",
+        "texto": "Qual a sua data de nascimento? Ex.: 05/03/1990"
+      },
+      {
+        "de": "lead",
+        "texto": "05/03/1990"
+      },
+      {
+        "de": "bot",
+        "texto": "Perfeito, nascimento em 05/03/1990.\n\nHoje você paga alguma parcela todo mês, como financiamento, empréstimo ou cartão parcelado? Se pagar, me diz quanto dá por mês no total. Se não, é só responder *não*."
+      },
+      {
+        "de": "lead",
+        "texto": "não"
+      },
+      {
+        "de": "bot",
+        "texto": "Entendi, sem parcelas mensais.\n\nVai comprar junto com mais alguém (cônjuge, familiar) e somar renda? (sim/não)"
+      },
+      {
+        "de": "lead",
+        "texto": "não"
+      },
+      {
+        "de": "bot",
+        "texto": "Você tem saldo de FGTS para usar? (sim/não)"
+      },
+      {
+        "de": "lead",
+        "texto": "não"
+      },
+      {
+        "de": "bot",
+        "texto": "Você possui algum imóvel residencial em seu nome? (sim/não)"
+      },
+      {
+        "de": "lead",
+        "texto": "não"
+      },
+      {
+        "de": "bot",
+        "texto": "Esse seria o seu primeiro imóvel financiado? (sim/não)"
+      },
+      {
+        "de": "lead",
+        "texto": "sim"
+      },
+      {
+        "de": "bot",
+        "texto": "Conferindo o que anotei:\n• Nome: Bruno Lima\n• Telefone: (41) 98888-0002\n• Empreendimento: Lumen Urban\n• Interesse: 1 dormitório\n• Forma de pagamento: entrada de uma vez e financiamento do saldo\n• Renda mensal: R$ 9.000\n• Tipo de renda: CLT\n• Nascimento: 05/03/1990\n• Parcelas mensais: R$ 0\n• Entrada de uma vez: R$ 120.000\n• Possui imóvel: não\n• Primeiro financiamento: sim\n\nEstá tudo certo? (sim/não)"
+      },
+      {
+        "de": "lead",
+        "texto": "sim"
+      },
+      {
+        "de": "bot",
+        "texto": "Prontinho, anotei tudo! 🙌 Já estou fazendo as contas, é rapidinho."
+      },
+      {
+        "de": "bot",
+        "texto": "Bruno, fiz a simulação do *Lumen Urban* para o apartamento de *1 dormitório* (unidade LU-0912, 39 m²), com valor de R$ 389.000.\n\n✅ Boa notícia: pelo que você me contou, o plano cabe.\n\n*Entrada*\n• A construtora aceita entrada de R$ 77.800 a R$ 194.500; usei R$ 77.800\n• Você tem disponível hoje: R$ 120.000\n• Saldo para financiar nas chaves: R$ 311.200\n\n*Como fica a entrada* (R$ 77.800 no total)\n• Tudo de uma vez, no ato: R$ 77.800\n\n*Estimativa do financiamento do saldo nas chaves*\n• Entrada em dinheiro: R$ 161.252,06\n• Valor financiado: R$ 227.747,94 em 420 meses (35 anos)\n• Parcelas (SAC, que diminuem com o tempo): a primeira de R$ 2.700 e a última de R$ 599,50\n\n*Pontos de atenção*\n• As parcelas da entrada são corrigidas pelo índice da construtora até a entrega. O valor corrigido é uma projeção e pode mudar.\n• Pelo perfil informado, o financiamento do saldo nas chaves ainda não fecha com o banco."
+      },
+      {
+        "de": "bot",
+        "texto": "*Importante:* esta simulação é *indicativa* e não é uma proposta nem uma reserva da unidade. Os valores e condições dependem da confirmação da construtora e da disponibilidade da unidade, e o financiamento do saldo depende da análise de crédito do banco, e podem mudar sem aviso.\n\nSimulação gerada em 15/11/2026 às 19:53.\n\n_Condição comercial ILUSTRATIVA (de exemplo), ainda não validada pela construtora._"
+      },
+      {
+        "de": "bot",
+        "texto": "Já passei o seu resumo para um corretor da nossa equipe. Ele deve te chamar por aqui em breve."
+      },
+      {
+        "de": "bot",
+        "texto": "E agora, o que você prefere?\n1. Mudar o valor da entrada\n2. Ver outro tipo de unidade\n3. Ver outra forma de pagamento\n4. Receber o PDF da simulação\n5. Falar com um corretor\n6. Está ótimo, pode seguir\nResponda com o número. Se quiser conversar com um corretor agora, é só pedir."
+      }
+    ],
+    "corretor": [
+      {
+        "de": "bot",
+        "texto": "🔥 LEAD QUENTE — ✅ Viável\n(classe pelo parecer da simulação; o score numérico configurável vem depois do MVP)\n\n👤 CLIENTE\nBruno Lima | (41) 98888-0002\n\n🏢 INTERESSE\nLumen Urban | 1 dormitório, unidade LU-0912 | Valor: R$ 389.000\n\n💰 SIMULAÇÃO (indicativa)\nForma de pagamento: Entrada de uma vez + financiamento do saldo\nEntrada: R$ 77.800 (faixa R$ 77.800 a R$ 194.500) | Disponível hoje: R$ 120.000\nSaldo para financiar nas chaves: R$ 311.200\nEstimativa do banco (SBPE (ILUSTRATIVO)): • Entrada em dinheiro: R$ 161.252,06 • Valor financiado: R$ 227.747,94 em 420 meses (35 anos) • Parcelas (SAC, que diminuem com o tempo): a primeira de R$ 2.700 e a última de R$ 599,50 • Isso usa cerca de 30% da sua renda, contando as parcelas que você já paga\nParecer: ✅ Viável\nCondição comercial: 2026-11-lumen-urban-ILUSTRATIVO-v1 (ILUSTRATIVA) | Gerada em 15/11/2026 às 19:53\n\n⚠️ ALERTAS\n• Condição comercial ILUSTRATIVA: não usar para promessa de condições\n• Parcelas da entrada corrigidas pelo índice da condição (projeção informativa)\n• Estimativa do banco no saldo: inviável com o perfil informado\n\n🎯 PRÓXIMO PASSO SUGERIDO\nLigar em até 5 min e agendar visita ao stand. Destacar: financiamento do saldo.\n\n📎 PDF da simulação anexo"
+      },
+      {
+        "de": "bot",
+        "texto": "PDF da simulação",
+        "arquivo": "simulacao-bruno-2026-11-15.pdf"
+      }
+    ]
+  },
+  {
+    "id": "carla",
+    "nome": "Carla Dias",
+    "modo": "Entrada parcelada com a construtora",
+    "resumo": "Parcela a entrada e financia nas chaves.",
+    "mensagens": [
+      {
+        "de": "bot",
+        "texto": "Oi, Carla! Aqui é a Elevare. Você pediu uma simulação do Lumen Urban no nosso site, certo? Responda *sim* para continuarmos por aqui."
+      },
+      {
+        "de": "lead",
+        "texto": "sim"
+      },
+      {
+        "de": "bot",
+        "texto": "Perfeito, Carla! Vou te fazer algumas perguntas rápidas e já te mostro como a conta fica."
+      },
+      {
+        "de": "bot",
+        "texto": "Qual tipo de unidade do Lumen Urban você procura?\n1. 1 dormitório\n2. 2 dormitórios\n3. Studio\nResponda com o número."
+      },
+      {
+        "de": "lead",
+        "texto": "1"
+      },
+      {
+        "de": "bot",
+        "texto": "Anotado, interesse em 1 dormitório."
+      },
+      {
+        "de": "bot",
+        "texto": "Como você pensa em pagar o imóvel?\n1. Pagar à vista\n2. Dar a entrada de uma vez e financiar o saldo\n3. Parcelar a entrada com a construtora\nResponda com o número."
+      },
+      {
+        "de": "lead",
+        "texto": "3"
+      },
+      {
+        "de": "bot",
+        "texto": "Para simular, qual é a renda bruta mensal da família? Pode somar a de quem vai comprar junto."
+      },
+      {
+        "de": "lead",
+        "texto": "9 mil"
+      },
+      {
+        "de": "bot",
+        "texto": "Entendi, renda de R$ 9.000/mês."
+      },
+      {
+        "de": "bot",
+        "texto": "Qual é o seu tipo de renda?\n1. CLT\n2. Autônomo\n3. Servidor público\n4. Aposentado/Pensionista\n5. Outros\nResponda com o número."
+      },
+      {
+        "de": "lead",
+        "texto": "clt"
+      },
+      {
+        "de": "bot",
+        "texto": "Qual a sua data de nascimento? Ex.: 05/03/1990"
+      },
+      {
+        "de": "lead",
+        "texto": "05/03/1990"
+      },
+      {
+        "de": "bot",
+        "texto": "Perfeito, nascimento em 05/03/1990.\n\nHoje você paga alguma parcela todo mês, como financiamento, empréstimo ou cartão parcelado? Se pagar, me diz quanto dá por mês no total. Se não, é só responder *não*."
+      },
+      {
+        "de": "lead",
+        "texto": "não"
+      },
+      {
+        "de": "bot",
+        "texto": "Entendi, sem parcelas mensais.\n\nVai comprar junto com mais alguém (cônjuge, familiar) e somar renda? (sim/não)"
+      },
+      {
+        "de": "lead",
+        "texto": "não"
+      },
+      {
+        "de": "bot",
+        "texto": "Quanto você tem disponível hoje para o ato, que é o primeiro pagamento da entrada? Se nada por enquanto, responda *0*."
+      },
+      {
+        "de": "lead",
+        "texto": "30 mil"
+      },
+      {
+        "de": "bot",
+        "texto": "Anotado, R$ 30.000 disponíveis para o ato.\n\nE por mês, qual valor você se sente à vontade para pagar na entrada parcelada, até a entrega das chaves? Se não tiver um valor em mente, responda *não sei*."
+      },
+      {
+        "de": "lead",
+        "texto": "2 mil"
+      },
+      {
+        "de": "bot",
+        "texto": "Anotado, parcela de até R$ 2.000/mês.\n\nPara aliviar as parcelas mensais, a construtora pode incluir reforços, que são parcelas um pouco maiores a cada 6 meses. Você topa? (sim/não)"
+      },
+      {
+        "de": "lead",
+        "texto": "sim"
+      },
+      {
+        "de": "bot",
+        "texto": "Beleza, pode ter reforços.\n\nVocê tem saldo de FGTS para usar? (sim/não)"
+      },
+      {
+        "de": "lead",
+        "texto": "não"
+      },
+      {
+        "de": "bot",
+        "texto": "Você possui algum imóvel residencial em seu nome? (sim/não)"
+      },
+      {
+        "de": "lead",
+        "texto": "não"
+      },
+      {
+        "de": "bot",
+        "texto": "Esse seria o seu primeiro imóvel financiado? (sim/não)"
+      },
+      {
+        "de": "lead",
+        "texto": "sim"
+      },
+      {
+        "de": "bot",
+        "texto": "Conferindo o que anotei:\n• Nome: Carla Dias\n• Telefone: (41) 98888-0003\n• Empreendimento: Lumen Urban\n• Interesse: 1 dormitório\n• Forma de pagamento: entrada parcelada com a construtora\n• Renda mensal: R$ 9.000\n• Tipo de renda: CLT\n• Nascimento: 05/03/1990\n• Parcelas mensais: R$ 0\n• Disponível hoje para o ato: R$ 30.000\n• Parcela mensal desejada: até R$ 2.000/mês\n• Reforços: aceita\n• Possui imóvel: não\n• Primeiro financiamento: sim\n\nEstá tudo certo? (sim/não)"
+      },
+      {
+        "de": "lead",
+        "texto": "sim"
+      },
+      {
+        "de": "bot",
+        "texto": "Prontinho, anotei tudo! 🙌 Já estou fazendo as contas, é rapidinho."
+      },
+      {
+        "de": "bot",
+        "texto": "Carla, fiz a simulação do *Lumen Urban* para o apartamento de *1 dormitório* (unidade LU-0912, 39 m²), com valor de R$ 389.000.\n\n✅ Boa notícia: pelo que você me contou, o plano cabe.\n\n*Entrada*\n• A construtora aceita entrada de R$ 77.800 a R$ 194.500; usei R$ 77.800\n• Você tem disponível hoje: R$ 30.000\n• Saldo para financiar nas chaves: R$ 311.200\n\n*Como fica a entrada* (R$ 77.800 no total)\n• Ato, hoje: R$ 30.000\n• 36 mensais de R$ 1.219,72 (a última de R$ 1.219,80)\n• Na entrega das chaves (mês 37): R$ 3.890\nEntrega prevista para 12/2029.\n\n*Seu orçamento*\n• Renda familiar considerada: R$ 9.000\n• O máximo de mensal que cabe, no limite da construtora: R$ 2.700\n• Isso usa cerca de 14% da sua renda, contando as parcelas que você já paga\n\n*Estimativa do financiamento do saldo nas chaves*\n• Entrada em dinheiro: R$ 161.252,06\n• Valor financiado: R$ 227.747,94 em 420 meses (35 anos)\n• Parcelas (SAC, que diminuem com o tempo): a primeira de R$ 2.700 e a última de R$ 599,50\n\n*Pontos de atenção*\n• As parcelas da entrada são corrigidas pelo índice da construtora até a entrega. O valor corrigido é uma projeção e pode mudar.\n• Pelo perfil informado, o financiamento do saldo nas chaves ainda não fecha com o banco."
+      },
+      {
+        "de": "bot",
+        "texto": "*Importante:* esta simulação é *indicativa* e não é uma proposta nem uma reserva da unidade. Os valores e condições dependem da confirmação da construtora e da disponibilidade da unidade, e o financiamento do saldo depende da análise de crédito do banco, e podem mudar sem aviso.\n\nSimulação gerada em 15/11/2026 às 19:53.\n\n_Condição comercial ILUSTRATIVA (de exemplo), ainda não validada pela construtora._"
+      },
+      {
+        "de": "bot",
+        "texto": "Já passei o seu resumo para um corretor da nossa equipe. Ele deve te chamar por aqui em breve."
+      },
+      {
+        "de": "bot",
+        "texto": "E agora, o que você prefere?\n1. Mudar o valor do ato\n2. Aceitar ou recusar reforços\n3. Ver outro tipo de unidade\n4. Ver outra forma de pagamento\n5. Receber o PDF da simulação\n6. Falar com um corretor\n7. Está ótimo, pode seguir\nResponda com o número. Se quiser conversar com um corretor agora, é só pedir."
+      }
+    ],
+    "corretor": [
+      {
+        "de": "bot",
+        "texto": "🔥 LEAD QUENTE — ✅ Viável\n(classe pelo parecer da simulação; o score numérico configurável vem depois do MVP)\n\n👤 CLIENTE\nCarla Dias | (41) 98888-0003\nRenda familiar: R$ 9.000 | Compradores: 1 | Parcelas mensais: R$ 0\n\n🏢 INTERESSE\nLumen Urban | 1 dormitório, unidade LU-0912 | Valor: R$ 389.000\n\n💰 SIMULAÇÃO (indicativa)\nForma de pagamento: Entrada parcelada com a construtora\nEntrada: R$ 77.800 (faixa R$ 77.800 a R$ 194.500) | Disponível hoje: R$ 30.000\nPlano da entrada: ato R$ 30.000 + 36x R$ 1.219,72 + chaves R$ 3.890\nEntrega prevista: 12/2029\nMensal máxima pela renda: R$ 2.700 | Comprometimento: 14%\nMensal desejada: até R$ 2.000 | Aceita reforços: sim\nSaldo para financiar nas chaves: R$ 311.200\nEstimativa do banco (SBPE (ILUSTRATIVO)): • Entrada em dinheiro: R$ 161.252,06 • Valor financiado: R$ 227.747,94 em 420 meses (35 anos) • Parcelas (SAC, que diminuem com o tempo): a primeira de R$ 2.700 e a última de R$ 599,50 • Isso usa cerca de 30% da sua renda, contando as parcelas que você já paga\nParecer: ✅ Viável\nCondição comercial: 2026-11-lumen-urban-ILUSTRATIVO-v1 (ILUSTRATIVA) | Gerada em 15/11/2026 às 19:53\n\n⚠️ ALERTAS\n• Condição comercial ILUSTRATIVA: não usar para promessa de condições\n• Parcelas da entrada corrigidas pelo índice da condição (projeção informativa)\n• Estimativa do banco no saldo: inviável com o perfil informado\n\n🎯 PRÓXIMO PASSO SUGERIDO\nLigar em até 5 min e agendar visita ao stand. Destacar: financiamento do saldo.\n\n📎 PDF da simulação anexo"
+      },
+      {
+        "de": "bot",
+        "texto": "PDF da simulação",
+        "arquivo": "simulacao-carla-2026-11-15.pdf"
+      }
+    ]
+  },
+  {
+    "id": "davi",
+    "nome": "Davi Rocha",
+    "modo": "Começo pelo WhatsApp",
+    "resumo": "Chamou direto, sem passar pelo site.",
+    "mensagens": [
+      {
+        "de": "lead",
+        "texto": "Oi! Vi o anúncio do Lumen Urban"
+      },
+      {
+        "de": "bot",
+        "texto": "Olá! Sou o assistente virtual da construtora e vou te ajudar a fazer uma simulação de financiamento do Lumen Urban. É rápido, leva uns 5 minutos.\n\nPara isso, preciso guardar as informações que você me passar (nome, contato e dados financeiros) e compartilhá-las com um corretor da construtora, só para atender a sua simulação. Nunca peço CPF, RG, senha ou dados de cartão.\n\nPara entender respostas em texto livre, uso um serviço de inteligência artificial da Anthropic como operadora de dados. Ele recebe só o texto da sua resposta, sem seu nome, telefone ou e-mail.\n\nVocê concorda? Responda *sim* ou *não*."
+      },
+      {
+        "de": "lead",
+        "texto": "sim"
+      },
+      {
+        "de": "bot",
+        "texto": "Obrigado! Vamos começar."
+      },
+      {
+        "de": "bot",
+        "texto": "Qual é o seu nome completo?"
+      },
+      {
+        "de": "lead",
+        "texto": "Davi Rocha"
+      },
+      {
+        "de": "bot",
+        "texto": "Prazer, Davi!\n\nPosso usar este número, (41) 98888-0004, para o corretor falar com você? (sim/não)"
+      }
+    ]
+  }
+]
