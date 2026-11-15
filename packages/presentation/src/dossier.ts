@@ -52,7 +52,6 @@ export function dossierCard(view: SimulationView, opts: DossierOptions = {}): st
   const out: string[] = [];
   if (opts.update) out.push('🔄 SIMULAÇÃO ATUALIZADA: o lead ajustou entrada/prazo');
   out.push(`${CLASS_HEADER[leadClassFor(result.verdict)]} — ${VERDICT_LABEL[result.verdict]}`);
-  out.push('(classe pelo parecer da simulação; o score numérico configurável vem depois do MVP)');
   if (opts.existingOwner) out.push(`ℹ️ Lead já existia no CRM. Responsável: ${opts.existingOwner}`);
 
   const family = a.grossMonthlyIncome + (co?.grossMonthlyIncome ?? 0);
